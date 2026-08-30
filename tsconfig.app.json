@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+
+    /* Path aliases — keep the engine/app boundary explicit at import sites */
+    "baseUrl": ".",
+    "paths": {
+      "@engine/*": ["src/engine/*"],
+      "@app/*": ["src/app/*"]
+    }
+  },
+  "include": ["src", "tests"]
+}
