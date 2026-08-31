@@ -20,6 +20,14 @@ plain schema data and returns plain data; nothing here mutates its input.
 - `validate.ts` — `validate(schema): ValidationError[]`, the invariants the
   plain-data model can't enforce at construction (unique ids, resolvable foreign
   keys). The app runs it on import; `diff`/`apply` assume it has passed.
+- `merge.ts` — `merge(base, ours, theirs): MergeResult` — three-way merge:
+  `diff`s each side, applies non-conflicting changes, reports the rest as
+  `Conflict`s (`add/add` / `update/update` / `delete/update`). `resolveMerge`
+  applies an ours/theirs pick per conflict.
+- `rename.ts` — `detectRenames(before, after): RenameResult` — heuristic layer
+  for schemas without stable ids: aligns entities by name then by signature so a
+  following `diff` sees `rename_*` instead of drop + add. Unambiguous matches
+  only.
 - `canonical.ts` — internal: stable stringify / deep key-sort for structural
   equality and sort keys.
 - `collections.ts` — internal: `byId`, and `assertUniqueIds` (the id-uniqueness
@@ -29,10 +37,8 @@ Import from `@engine` (the barrel) at call sites.
 
 ## Not yet built
 
-- `rename.ts` — rename *detection* for schemas that arrive without stable ids
-  (e.g. parsed from DDL). Explicitly heuristic, layered on top of the exact
-  id-based diff.
-- `merge.ts` — three-way merge with conflict detection.
+- migration output — `Change[]` (or `MergeResult.changes`) → runnable
+  `ALTER TABLE` (Day 3).
 
 ## The boundary
 

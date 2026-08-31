@@ -32,6 +32,28 @@ describe('validate', () => {
     );
   });
 
+  it('flags a duplicate table name', () => {
+    const s = schema(table('t_1', 'orders'), table('t_2', 'orders'));
+    expect(validate(s).map((e) => e.message)).toContain('duplicate table name "orders"');
+  });
+
+  it('flags a duplicate column name within a table', () => {
+    const s = schema(
+      table('t', 't', column('c_1', 'total', { kind: 'int' }), column('c_2', 'total', { kind: 'int' })),
+    );
+    expect(validate(s)).toContainEqual(
+      expect.objectContaining({ message: 'duplicate column name "total" in table "t"', columnId: 'c_2' }),
+    );
+  });
+
+  it('allows the same column name in different tables', () => {
+    const s = schema(
+      table('t_a', 'a', column('c_a', 'id', { kind: 'int' })),
+      table('t_b', 'b', column('c_b', 'id', { kind: 'int' })),
+    );
+    expect(validate(s)).toEqual([]);
+  });
+
   it('flags a foreign key to an unknown table', () => {
     const s = schema(
       table('t', 't', column('c', 'c', { kind: 'int' }, {
