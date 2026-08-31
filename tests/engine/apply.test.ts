@@ -60,6 +60,29 @@ describe('apply', () => {
     expect(apply(before, forward)).toEqual(apply(before, [...forward].reverse()));
   });
 
+  it('applies many changes to one table via a single column map', () => {
+    const before = schema(
+      table(
+        't',
+        't',
+        column('a', 'a', { kind: 'int' }),
+        column('b', 'b', { kind: 'int' }),
+        column('c', 'c', { kind: 'int' }),
+      ),
+    );
+    const changes: Change[] = [
+      { kind: 'rename_column', tableId: 't', columnId: 'a', from: 'a', to: 'a2' },
+      { kind: 'change_type', tableId: 't', columnId: 'b', from: { kind: 'int' }, to: { kind: 'bigint' } },
+      { kind: 'change_nullable', tableId: 't', columnId: 'c', from: false, to: true },
+      { kind: 'drop_column', tableId: 't', columnId: 'c', column: column('c', 'c', { kind: 'int' }) },
+      { kind: 'add_column', tableId: 't', columnId: 'd', column: column('d', 'd', { kind: 'text' }) },
+    ];
+    const result = apply(before, changes);
+    expect(result.tables[0].columns.map((col) => col.id)).toEqual(['a', 'b', 'd']);
+    expect(result.tables[0].columns[0].name).toBe('a2');
+    expect(result.tables[0].columns[1].type).toEqual({ kind: 'bigint' });
+  });
+
   it('throws when a change targets a missing id', () => {
     expect(() =>
       apply(schema(), [{ kind: 'rename_table', tableId: 'ghost', from: 'a', to: 'b' }]),

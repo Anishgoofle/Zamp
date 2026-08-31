@@ -1,7 +1,7 @@
 import { equal } from './canonical';
 import type { Change, ColumnChange } from './change';
 import { assertUniqueIds, byId } from './collections';
-import type { Schema, Table } from './types';
+import type { Column, Schema, Table } from './types';
 
 /**
  * Apply a change list to a schema, returning a new schema; the input is not
@@ -18,6 +18,18 @@ export function apply(schema: Schema, changes: readonly Change[]): Schema {
   const next = structuredClone(schema);
   const tables = byId(next.tables);
 
+  // Each table's column map is built once on first touch and written back once
+  // at the end, so K changes to a C-column table cost O(K + C), not O(K * C).
+  const columnMaps = new Map<string, Map<string, Column>>();
+  const columnsOf = (table: Table): Map<string, Column> => {
+    let columns = columnMaps.get(table.id);
+    if (columns === undefined) {
+      columns = byId(table.columns);
+      columnMaps.set(table.id, columns);
+    }
+    return columns;
+  };
+
   for (const change of changes) {
     switch (change.kind) {
       case 'add_table':
@@ -26,22 +38,25 @@ export function apply(schema: Schema, changes: readonly Change[]): Schema {
       case 'drop_table':
         mustGet(tables, change.tableId, 'table');
         tables.delete(change.tableId);
+        columnMaps.delete(change.tableId);
         break;
       case 'rename_table':
         mustGet(tables, change.tableId, 'table').name = change.to;
         break;
       default:
-        applyColumnChange(mustGet(tables, change.tableId, 'table'), change);
+        applyColumnChange(columnsOf(mustGet(tables, change.tableId, 'table')), change);
     }
   }
 
+  for (const [tableId, columns] of columnMaps) {
+    const table = tables.get(tableId);
+    if (table !== undefined) table.columns = [...columns.values()];
+  }
   next.tables = [...tables.values()];
   return next;
 }
 
-function applyColumnChange(table: Table, change: ColumnChange): void {
-  const columns = byId(table.columns);
-
+function applyColumnChange(columns: Map<string, Column>, change: ColumnChange): void {
   switch (change.kind) {
     case 'add_column':
       columns.set(change.column.id, structuredClone(change.column));
@@ -74,8 +89,6 @@ function applyColumnChange(table: Table, change: ColumnChange): void {
       break;
     }
   }
-
-  table.columns = [...columns.values()];
 }
 
 function mustGet<T>(map: Map<string, T>, id: string, what: 'table' | 'column'): T {

@@ -5,3 +5,7 @@ export { apply } from './apply';
 export { branch } from './branch';
 export { validate } from './validate';
 export type { ValidationError } from './validate';
+export { merge, resolveMerge } from './merge';
+export type { MergeResult, ResolvedMerge, Conflict, ConflictKind } from './merge';
+export { detectRenames } from './rename';
+export type { RenameResult, RenameMatch } from './rename';

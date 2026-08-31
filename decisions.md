@@ -162,10 +162,13 @@ expand it.
 
 ## Invariants are an explicit `validate()` pass, not constructor guarantees
 
-The plain-data model can't stop a schema with duplicate ids or a foreign key
-pointing nowhere. `validate(schema)` checks unique table ids, unique column ids
-per table, and resolvable foreign keys, returning every problem found — the app
-runs it when a schema enters the system.
+The plain-data model can't stop a schema with duplicate ids/names or a foreign
+key pointing nowhere. `validate(schema)` checks unique table ids and names,
+unique column ids and names per table, and resolvable foreign keys, returning
+every problem found — the app runs it when a schema enters the system. (Name
+uniqueness matters for merge: two branches independently renaming different
+columns to the same name is not a slot conflict, so `validate` is what catches
+the collision — surfaced as `MergeResult.errors`.)
 
 `diff` and `apply` don't run full validation, but they do **assert** the one
 invariant they need for correctness: unique table/column ids. Both pair entries
@@ -192,4 +195,68 @@ suite asserts `diff(apply(before, diff(before, after)), after)` is empty — a
 round-trip property that catches whole classes of diff bugs a set of hand-written
 expectations would miss. Changes are mutually independent, so `apply` is
 order-insensitive and appends new tables/columns (order isn't significant).
-Three-way `merge` with conflict detection is still the next milestone.
+
+---
+
+## Merge is `diff` twice, then reconcile per "slot"
+
+`merge(base, ours, theirs)` runs `diff(base, ours)` and `diff(base, theirs)`,
+groups every change by the location it touches — a **slot** like
+`table:t:name`, `column:t.c:type`, `column:t.c:constraint:default` — and for each
+slot: one side only → take it; both sides identical → take it once; both sides
+different → a `Conflict`. The field-level `Change` granularity from Day 1 is what
+makes this work: `ours` retyping a column and `theirs` toggling its nullability
+land in different slots and both apply.
+
+Singleton constraints (`primary_key`, `unique`, `default`) slot by *kind*, so two
+different `default` expressions conflict instead of both applying. `check` and
+`foreign_key` may legally repeat, so they slot by full value.
+
+---
+
+## Merge auto-applies what it can; conflicts stay at `base`
+
+`MergeResult.schema` is `base` plus every non-conflicting change. A conflicted
+slot is left at its `base` value — not "ours wins" — and carried in
+`conflicts[]` with both sides' changes. `resolveMerge(result, picks)` takes an
+`ours`/`theirs` choice per conflict and returns `{ schema, errors }` — it
+re-`validate`s, because picking a side can still collide (both branches renamed
+different columns toward the same name, only one auto-merged, the pick supplies
+the other). This keeps the auto-merge honest (it never silently picks a side)
+and gives the Day 4 UI a clean resolve-one-at-a-time model.
+
+Conflict kinds: `update/update` (same slot, different values), `add/add` (same
+new id, different definition), `delete/update` (one side drops a table/column,
+the other makes *any* other change to it). `delete/update` fires even when the
+other side's change is itself a deletion — dropping a column of a table the other
+branch drops whole — because the branch that only dropped the column still has
+the table, so the two disagree on its existence; merging silently would lose the
+columns that branch kept.
+
+Cross-entity inconsistency — `ours` adds a foreign key to a table `theirs` drops
+— is **not** a conflict; it surfaces as `MergeResult.errors` from
+`validate(schema)`, since catching it means re-deriving references, not comparing
+change slots.
+
+---
+
+## Rename detection is a separate heuristic layer, name-match before signature
+
+The exact `diff` is pure id-based; `detectRenames(before, after)` runs *before*
+it, for schemas that arrive without stable ids (parsed DDL). It aligns `after`'s
+tables/columns to `before` in two passes — identical name first (ids were just
+regenerated), then structural signature for the leftovers (a real rename) — and
+reuses `before`'s id so the following `diff` reports `rename_*` or nothing
+instead of drop + add. Only **unambiguous** matches are taken (exactly one
+candidate on each side); when two dropped columns share a signature with two
+added ones, it leaves them as drop + add rather than guessing. Keeping this
+separate means the core diff stays exact and testable without the heuristic.
+
+Signatures exclude *names*: a column signature is its type + nullability +
+constraint set, a table signature is the multiset of its column signatures. So a
+table that was renamed *and* had a column renamed still matches — the uniqueness
+requirement is what stops two unrelated tables with the same column shape from
+being paired. A foreign key's signature is reduced to just its *kind* (its target
+ids are regenerated in the parsed-DDL case, so matching on them is pointless); a
+final pass rewrites every reconciled FK's `refTableId`/`refColumnId` to the kept
+ids, so the following `diff` and `validate` see a stable, resolvable reference.
