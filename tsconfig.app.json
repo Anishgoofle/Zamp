@@ -26,7 +26,9 @@
     /* Path aliases — keep the engine/app boundary explicit at import sites */
     "baseUrl": ".",
     "paths": {
+      "@engine": ["src/engine"],
       "@engine/*": ["src/engine/*"],
+      "@app": ["src/app"],
       "@app/*": ["src/app/*"]
     }
   },
