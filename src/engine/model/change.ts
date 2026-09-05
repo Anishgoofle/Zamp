@@ -3,7 +3,7 @@ import type { Column, ColumnConstraint, ColumnType, Table } from './types';
 /**
  * The diff vocabulary: `diff` emits it, `apply` consumes it. Field-level, so a
  * type change and a nullability change on one column are separate entries and
- * don't conflict (see ../../decisions.md). Add/drop kinds carry the whole,
+ * don't conflict (see ../../../decisions.md). Add/drop kinds carry the whole,
  * normalized object.
  */
 export type Change =

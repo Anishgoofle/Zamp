@@ -1,9 +1,9 @@
 import { apply } from './apply';
-import { canonical } from './canonical';
-import type { Change } from './change';
-import { assertUniqueIds } from './collections';
+import { canonical } from '../internal/canonical';
+import type { Change } from '../model/change';
+import { assertUniqueIds } from '../internal/collections';
 import { diff } from './diff';
-import type { ColumnConstraint, Schema } from './types';
+import type { ColumnConstraint, Schema } from '../model/types';
 import { validate, type ValidationError } from './validate';
 
 export type ConflictKind = 'add/add' | 'update/update' | 'delete/update';
@@ -42,7 +42,7 @@ export interface MergeResult {
 /**
  * Three-way merge. `diff`s each side against `base`, applies every
  * non-conflicting change, and reports the rest as `Conflict`s (see
- * ../../decisions.md). Order of `ours` / `theirs` only swaps the two sides of
+ * ../../../decisions.md). Order of `ours` / `theirs` only swaps the two sides of
  * each conflict; the merged schema is the same either way.
  */
 export function merge(base: Schema, ours: Schema, theirs: Schema): MergeResult {

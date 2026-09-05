@@ -1,13 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App.tsx';
-import './index.css';
+import { MergeWorkbench } from './containers/MergeWorkbench';
+import './styles/index.css';
 
-const rootEl = document.getElementById('root');
-if (!rootEl) throw new Error('Root element #root not found');
+const root = document.getElementById('root');
+if (!root) throw new Error('#root not found');
 
-createRoot(rootEl).render(
+createRoot(root).render(
   <StrictMode>
-    <App />
+    <MergeWorkbench />
   </StrictMode>,
 );

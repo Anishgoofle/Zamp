@@ -30,3 +30,8 @@ coverage
 
 # Vercel
 .vercel
+
+# Env
+.env
+.env.*
+!.env.example

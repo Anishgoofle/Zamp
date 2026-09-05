@@ -34,3 +34,19 @@ function sortKeys(value: unknown): unknown {
   }
   return value;
 }
+
+/**
+ * A short, stable identity for a value's canonical form. Used to notice that a
+ * live database changed between planning a migration and running it. FNV-1a, so
+ * it is a drift detector and not a security primitive — a deliberate collision is
+ * possible, an accidental one is not worth worrying about.
+ */
+export function fingerprint(value: unknown): string {
+  const text = canonical(value);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
