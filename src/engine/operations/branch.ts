@@ -1,4 +1,4 @@
-import type { Schema } from './types';
+import type { Schema } from '../model/types';
 
 /**
  * Branch a schema. Plain data with stable ids, so this is just a structural

@@ -1,13 +1,13 @@
-import { equal } from './canonical';
-import type { Change, ColumnChange } from './change';
-import { assertUniqueIds, byId } from './collections';
-import type { Column, Schema, Table } from './types';
+import { equal } from '../internal/canonical';
+import type { Change, ColumnChange } from '../model/change';
+import { assertUniqueIds, byId } from '../internal/collections';
+import type { Column, Schema, Table } from '../model/types';
 
 /**
  * Apply a change list to a schema, returning a new schema; the input is not
  * mutated. `apply(s, diff(s, t))` has no remaining diff to `t`. Changes are
  * mutually independent, so order does not matter; new tables and columns are
- * appended (order is not significant, see ../../decisions.md).
+ * appended (order is not significant, see ../../../decisions.md).
  *
  * Throws on duplicate ids in `schema`, or on a change targeting an id that is
  * not present — both mean a malformed or stale input, not a recoverable state.

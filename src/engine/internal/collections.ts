@@ -1,4 +1,4 @@
-import type { Schema } from './types';
+import type { Schema } from '../model/types';
 
 /** Index a list of id-bearing records by id. Last write wins on a duplicate. */
 export function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {

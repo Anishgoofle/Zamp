@@ -1,11 +1,11 @@
-import { canonical, canonicalize } from './canonical';
-import type { Change } from './change';
-import { assertUniqueIds, byId } from './collections';
-import type { Column, Schema, Table } from './types';
+import { canonical, canonicalize } from '../internal/canonical';
+import type { Change } from '../model/change';
+import { assertUniqueIds, byId } from '../internal/collections';
+import type { Column, Schema, Table } from '../model/types';
 
 /**
  * Turn `before` into `after`, as one flat array of field-level changes in a
- * deterministic order (see ../../decisions.md). Depends only on schema content,
+ * deterministic order (see ../../../decisions.md). Depends only on schema content,
  * not array ordering. Inputs are not mutated; embedded objects are fresh clones.
  * Throws on duplicate table/column ids (see `assertUniqueIds`).
  */
@@ -104,7 +104,7 @@ function diffConstraints(
 ): void {
   // Keyed by canonical form: a column that (invalidly) repeats an identical
   // constraint collapses to one entry, so diff never emits a duplicate
-  // add/drop_constraint. Constraints are a set — see ../../decisions.md.
+  // add/drop_constraint. Constraints are a set — see ../../../decisions.md.
   const beforeByKey = new Map(before.constraints.map((c) => [canonical(c), c]));
   const afterByKey = new Map(after.constraints.map((c) => [canonical(c), c]));
 

@@ -1,6 +1,6 @@
 /**
  * The schema model: plain JSON-serializable data, no methods, no live refs (see
- * ../../decisions.md). Operations are free functions elsewhere in this folder.
+ * ../../../decisions.md). Operations are free functions elsewhere in this folder.
  */
 
 /** A full database schema. This is the versioned artifact. */
@@ -32,7 +32,14 @@ export type ColumnType =
   | { kind: 'varchar'; length: number }
   | { kind: 'boolean' }
   | { kind: 'timestamp'; withTimezone: boolean }
-  | { kind: 'numeric'; precision: number; scale: number };
+  | { kind: 'numeric'; precision: number; scale: number }
+  /**
+   * Any Postgres type this model doesn't spell out — `jsonb`, `uuid`, `text[]`,
+   * a domain, an enum. Carries the type verbatim so an introspected column keeps
+   * its type instead of being dropped from the model (which would make the next
+   * diff emit `DROP COLUMN` for it). Compared as an opaque string.
+   */
+  | { kind: 'other'; sql: string };
 
 export type ColumnConstraint =
   | { kind: 'primary_key' }

@@ -1,4 +1,4 @@
-import type { Schema } from './types';
+import type { Schema } from '../model/types';
 
 export interface ValidationError {
   message: string;
@@ -8,7 +8,7 @@ export interface ValidationError {
 
 /**
  * The explicit invariant pass the plain-data model can't enforce at
- * construction (see ../../decisions.md): unique table ids and names, unique
+ * construction (see ../../../decisions.md): unique table ids and names, unique
  * column ids and names per table, resolvable foreign keys. Returns every problem
  * found. Callers run this on import; `diff`/`apply` assume it has passed.
  */

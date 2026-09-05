@@ -1,6 +1,6 @@
-import { canonical } from './canonical';
-import { assertUniqueIds, byId } from './collections';
-import type { Column, ColumnConstraint, Schema, Table } from './types';
+import { canonical } from '../internal/canonical';
+import { assertUniqueIds, byId } from '../internal/collections';
+import type { Column, ColumnConstraint, Schema, Table } from '../model/types';
 
 export interface RenameMatch {
   scope: 'table' | 'column';
@@ -26,7 +26,7 @@ export interface RenameResult {
  * name, then by structural signature for the leftovers (a real rename) — and
  * reuses `before`'s id, so a following `diff` reports `rename_*` or nothing
  * instead of drop + add. Only unambiguous matches are taken; see
- * ../../decisions.md.
+ * ../../../decisions.md.
  */
 export function detectRenames(before: Schema, after: Schema): RenameResult {
   assertUniqueIds(before, 'detectRenames (before)');
@@ -87,10 +87,13 @@ function remapForeignKeys(schema: Schema, matches: RenameMatch[]): void {
     for (const column of table.columns) {
       for (const constraint of column.constraints) {
         if (constraint.kind !== 'foreign_key') continue;
-        constraint.refTableId = tableIdOf.get(constraint.refTableId) ?? constraint.refTableId;
+        // Resolve the table first and keep it in a local: `columnIdOf` is keyed by
+        // the *kept* table id, so reading `constraint.refTableId` back after
+        // assigning it would make this depend on statement order.
+        const refTableId = tableIdOf.get(constraint.refTableId) ?? constraint.refTableId;
         constraint.refColumnId =
-          columnIdOf.get(constraint.refTableId)?.get(constraint.refColumnId) ??
-          constraint.refColumnId;
+          columnIdOf.get(refTableId)?.get(constraint.refColumnId) ?? constraint.refColumnId;
+        constraint.refTableId = refTableId;
       }
     }
   }
