@@ -6,7 +6,7 @@ export interface NameLookup {
 }
 
 /**
- * id → name for display. Pass schemas newest-first: a renamed entity reads from
+ * id to name, for display. Pass schemas newest-first: a renamed entity reads from
  * the newer one, a dropped entity survives only in the older.
  */
 export function makeNames(...schemas: Array<Schema | null | undefined>): NameLookup {
@@ -74,7 +74,7 @@ export function changeSign(change: Change): 'add' | 'drop' | 'modify' {
   }
 }
 
-/** One-line summary of a `Change`, e.g. `users.email: type text → varchar(200)`. */
+/** One-line summary of a `Change`, e.g. "users.email: type text -> varchar(200)". */
 export function describeChange(change: Change, names: NameLookup): string {
   const table = names.table(change.tableId);
 

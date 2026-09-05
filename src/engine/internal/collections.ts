@@ -1,4 +1,4 @@
-import type { Schema } from '../model/types';
+import type { Schema } from '../model/types.js';
 
 /** Index a list of id-bearing records by id. Last write wins on a duplicate. */
 export function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
@@ -10,9 +10,9 @@ export function byId<T extends { id: string }>(items: readonly T[]): Map<string,
 }
 
 /**
- * `diff` and `apply` pair tables and columns by id (via `byId`); a duplicate id
- * would shadow its twin and give a wrong result, so both call this first. Full
- * validation is `validate()`'s job — this is only the precondition they need.
+ * `diff` and `apply` pair tables and columns by id via `byId`, where a duplicate
+ * id would shadow its twin and quietly give a wrong answer. Both call this first.
+ * Full validation is `validate()`'s job; this is just their precondition.
  */
 export function assertUniqueIds(schema: Schema, where: string): void {
   const tableIds = new Set<string>();

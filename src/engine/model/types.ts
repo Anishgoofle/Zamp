@@ -21,7 +21,7 @@ export interface Column {
   name: string;
   type: ColumnType;
   nullable: boolean;
-  /** Order is not significant — diff compares these as a set. */
+  /** Order is not significant. Diff compares these as a set. */
   constraints: ColumnConstraint[];
 }
 
@@ -34,10 +34,10 @@ export type ColumnType =
   | { kind: 'timestamp'; withTimezone: boolean }
   | { kind: 'numeric'; precision: number; scale: number }
   /**
-   * Any Postgres type this model doesn't spell out — `jsonb`, `uuid`, `text[]`,
-   * a domain, an enum. Carries the type verbatim so an introspected column keeps
-   * its type instead of being dropped from the model (which would make the next
-   * diff emit `DROP COLUMN` for it). Compared as an opaque string.
+   * Any Postgres type this model doesn't spell out: jsonb, uuid, text[], a
+   * domain, an enum. Held verbatim so an introspected column keeps its type
+   * rather than falling out of the model, which would make the next diff emit
+   * DROP COLUMN for it. Compared as an opaque string.
    */
   | { kind: 'other'; sql: string };
 
@@ -46,5 +46,5 @@ export type ColumnConstraint =
   | { kind: 'unique' }
   | { kind: 'default'; expr: string }
   | { kind: 'check'; expr: string }
-  /** Target held by id and resolved on demand — never a live pointer. */
+  /** Target held by id and resolved on demand. Never a live pointer. */
   | { kind: 'foreign_key'; refTableId: string; refColumnId: string };

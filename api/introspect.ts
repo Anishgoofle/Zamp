@@ -1,17 +1,17 @@
-import { fingerprint, readCatalog } from '../src/engine/index';
-import { withDatabase } from './_db';
-import { postJson, requireString } from './_http';
+import { fingerprint, readCatalog } from '../src/engine/index.js';
+import { withDatabase } from './_db.js';
+import { postJson, requireString } from './_http.js';
 
 export const config = { maxDuration: 30 };
 
 /**
  * Read a live database into the schema model.
  *
- * `POST { connectionString?, schema? }` → `{ schema, stats, notes, fingerprint }`.
+ * `POST { connectionString?, schema? }` returns `{ schema, stats, notes, fingerprint }`.
  *
- * The `fingerprint` is what `/api/apply` checks before it touches anything: if the
- * database moved between reading it and applying to it, the plan was computed
- * against a schema that no longer exists and applying it would be a guess.
+ * /api/apply checks the fingerprint before it touches anything. If the database
+ * moved between the read and the apply, the plan was built against a schema that
+ * no longer exists, and running it would be a guess.
  */
 export default postJson(async (body) => {
   const schemaName = requireString(body, 'schema', 'public');

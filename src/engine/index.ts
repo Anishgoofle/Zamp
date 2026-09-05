@@ -1,28 +1,28 @@
-export type { Schema, Table, Column, ColumnType, ColumnConstraint } from './model/types';
-export type { Change, ColumnChange } from './model/change';
-export { fingerprint } from './internal/canonical';
-export { diff } from './operations/diff';
-export { apply } from './operations/apply';
-export { branch } from './operations/branch';
-export { validate } from './operations/validate';
-export { parseSchema } from './operations/parse';
-export type { ParseResult } from './operations/parse';
-export type { ValidationError } from './operations/validate';
-export { merge, resolveMerge } from './operations/merge';
-export type { MergeResult, ResolvedMerge, Conflict, ConflictKind } from './operations/merge';
-export { detectRenames } from './operations/rename';
-export type { RenameResult, RenameMatch } from './operations/rename';
-export { migrate } from './operations/migrate';
-export { plan, batches } from './operations/plan';
-export type { Plan, Step, Batch, Hazard, LockLevel, PlanOptions, TableStats } from './operations/plan';
-export { introspect } from './operations/introspect';
+export type { Schema, Table, Column, ColumnType, ColumnConstraint } from './model/types.js';
+export type { Change, ColumnChange } from './model/change.js';
+export { fingerprint } from './internal/canonical.js';
+export { diff } from './operations/diff.js';
+export { apply } from './operations/apply.js';
+export { branch } from './operations/branch.js';
+export { validate } from './operations/validate.js';
+export { parseSchema } from './operations/parse.js';
+export type { ParseResult } from './operations/parse.js';
+export type { ValidationError } from './operations/validate.js';
+export { merge, resolveMerge } from './operations/merge.js';
+export type { MergeResult, ResolvedMerge, Conflict, ConflictKind } from './operations/merge.js';
+export { detectRenames } from './operations/rename.js';
+export type { RenameResult, RenameMatch } from './operations/rename.js';
+export { migrate } from './operations/migrate.js';
+export { plan, batches } from './operations/plan.js';
+export type { Plan, Step, Batch, Hazard, LockLevel, PlanOptions, TableStats } from './operations/plan.js';
+export { introspect } from './operations/introspect.js';
 export type {
   Introspection,
   CatalogColumn,
   CatalogConstraint,
   CatalogTableSize,
-} from './operations/introspect';
-export { readCatalog } from './postgres/catalog';
-export type { Queryable } from './postgres/catalog';
-export { rehearse, execute } from './postgres/execute';
-export type { StepResult, RunOptions } from './postgres/execute';
+} from './operations/introspect.js';
+export { readCatalog } from './postgres/catalog.js';
+export type { Queryable } from './postgres/catalog.js';
+export { rehearse, execute } from './postgres/execute.js';
+export type { StepResult, RunOptions } from './postgres/execute.js';

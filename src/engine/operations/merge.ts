@@ -1,15 +1,15 @@
-import { apply } from './apply';
-import { canonical } from '../internal/canonical';
-import type { Change } from '../model/change';
-import { assertUniqueIds } from '../internal/collections';
-import { diff } from './diff';
-import type { ColumnConstraint, Schema } from '../model/types';
-import { validate, type ValidationError } from './validate';
+import { apply } from './apply.js';
+import { canonical } from '../internal/canonical.js';
+import type { Change } from '../model/change.js';
+import { assertUniqueIds } from '../internal/collections.js';
+import { diff } from './diff.js';
+import type { ColumnConstraint, Schema } from '../model/types.js';
+import { validate, type ValidationError } from './validate.js';
 
 export type ConflictKind = 'add/add' | 'update/update' | 'delete/update';
 
 export interface Conflict {
-  /** Stable within one result — derived from the location in dispute. */
+  /** Stable within one result. Derived from the location in dispute. */
   id: string;
   kind: ConflictKind;
   tableId: string;
@@ -22,28 +22,27 @@ export interface Conflict {
 
 export interface MergeResult {
   /**
-   * `base` plus every change the two sides agree on (or only one side made).
-   * Conflicted locations stay at their `base` value — resolve them with
-   * `resolveMerge`.
+   * `base` plus every change the two sides agree on, or only one side made.
+   * Conflicted locations stay at their `base` value until `resolveMerge`.
    */
   schema: Schema;
-  /** The changes from `base` to `schema` — deterministically ordered, feed to migration output. */
+  /** Changes from `base` to `schema`, deterministically ordered. Feeds migration output. */
   changes: Change[];
   conflicts: Conflict[];
   /**
-   * `validate(schema)`. Empty when `base`, `ours` and `theirs` are each valid
-   * and no conflicts remain. Non-empty means the two sides are individually
-   * fine but jointly inconsistent — e.g. one adds a foreign key to a table the
-   * other drops. `conflicts` does not cover those cross-entity cases.
+   * `validate(schema)`. Empty when `base`, `ours` and `theirs` are each valid and
+   * no conflicts remain. Non-empty means the two sides are individually fine but
+   * jointly inconsistent, e.g. one adds a foreign key to a table the other drops.
+   * `conflicts` doesn't cover those cross-entity cases.
    */
   errors: ValidationError[];
 }
 
 /**
- * Three-way merge. `diff`s each side against `base`, applies every
- * non-conflicting change, and reports the rest as `Conflict`s (see
- * ../../../decisions.md). Order of `ours` / `theirs` only swaps the two sides of
- * each conflict; the merged schema is the same either way.
+ * Three-way merge. Diffs each side against `base`, applies every non-conflicting
+ * change, reports the rest as `Conflict`s (decisions.md). Swapping `ours` and
+ * `theirs` swaps the two sides of each conflict and nothing else; the merged
+ * schema comes out the same either way.
  */
 export function merge(base: Schema, ours: Schema, theirs: Schema): MergeResult {
   assertUniqueIds(base, 'merge (base)');
@@ -89,7 +88,7 @@ export function merge(base: Schema, ours: Schema, theirs: Schema): MergeResult {
 
 export interface ResolvedMerge {
   schema: Schema;
-  /** `validate(schema)` — a resolution can still produce an invalid schema (e.g. a name collision). */
+  /** `validate(schema)`. A resolution can still be invalid, e.g. a name collision. */
   errors: ValidationError[];
 }
 
@@ -192,7 +191,7 @@ const SINGLETON_CONSTRAINTS = new Set<ColumnConstraint['kind']>([
   'default',
 ]);
 
-/** `check` and `foreign_key` may legally repeat, so they key by full value. */
+/** `check` and `foreign_key` can legally repeat, so they key on the full value. */
 function constraintSlot(constraint: ColumnConstraint): string {
   return SINGLETON_CONSTRAINTS.has(constraint.kind) ? constraint.kind : canonical(constraint);
 }

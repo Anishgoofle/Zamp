@@ -1,16 +1,16 @@
-import { equal } from '../internal/canonical';
-import type { Change, ColumnChange } from '../model/change';
-import { assertUniqueIds, byId } from '../internal/collections';
-import type { Column, Schema, Table } from '../model/types';
+import { equal } from '../internal/canonical.js';
+import type { Change, ColumnChange } from '../model/change.js';
+import { assertUniqueIds, byId } from '../internal/collections.js';
+import type { Column, Schema, Table } from '../model/types.js';
 
 /**
- * Apply a change list to a schema, returning a new schema; the input is not
- * mutated. `apply(s, diff(s, t))` has no remaining diff to `t`. Changes are
- * mutually independent, so order does not matter; new tables and columns are
- * appended (order is not significant, see ../../../decisions.md).
+ * Apply a change list to a schema and return a new one. The input isn't mutated,
+ * and `apply(s, diff(s, t))` has no remaining diff to `t`. Changes are mutually
+ * independent so order doesn't matter; new tables and columns are appended, and
+ * that order isn't significant either (decisions.md).
  *
- * Throws on duplicate ids in `schema`, or on a change targeting an id that is
- * not present — both mean a malformed or stale input, not a recoverable state.
+ * Throws on duplicate ids in `schema` or a change targeting an id that isn't
+ * there. Both mean malformed or stale input rather than a recoverable state.
  */
 export function apply(schema: Schema, changes: readonly Change[]): Schema {
   assertUniqueIds(schema, 'apply');
@@ -18,8 +18,8 @@ export function apply(schema: Schema, changes: readonly Change[]): Schema {
   const next = structuredClone(schema);
   const tables = byId(next.tables);
 
-  // Each table's column map is built once on first touch and written back once
-  // at the end, so K changes to a C-column table cost O(K + C), not O(K * C).
+  // Build each table's column map once on first touch and write it back once at
+  // the end: K changes to a C-column table cost O(K + C) instead of O(K * C).
   const columnMaps = new Map<string, Map<string, Column>>();
   const columnsOf = (table: Table): Map<string, Column> => {
     let columns = columnMaps.get(table.id);

@@ -1,24 +1,22 @@
 /**
- * `check` and `default` are the only two places where a user's own SQL text ends
- * up inside generated DDL. Everything else in the model is an identifier, and
- * identifiers get double-quoted; an expression cannot be, because the whole point
- * of it is to be SQL.
+ * `check` and `default` are the only two places user SQL text reaches generated
+ * DDL. Everything else in the model is an identifier, and identifiers get
+ * double-quoted. An expression can't be; being SQL is the point of it.
  *
- * So it is checked instead. This is not a parser and does not try to be — it is a
- * gate that rejects the shapes that let one expression turn into two statements,
- * or into a comment that swallows the rest of the line. Combined with the driver
- * being pinned to the extended query protocol (one statement per call, see
- * `postgres/execute.ts`), an expression that gets through here can compute a
- * value and cannot do anything else.
+ * So it gets checked instead. Not a parser: a gate that rejects the shapes which
+ * turn one expression into two statements, or into a comment that eats the rest
+ * of the line. The driver is also pinned to the extended query protocol, one
+ * statement per call (see postgres/execute.ts). Between the two, an expression
+ * that gets through can compute a value and nothing else.
  *
- * What it deliberately does *not* do is restrict which functions you may call.
- * `now()` and `gen_random_uuid()` are most of the reason people write defaults at
- * all, and an allowlist would be wrong within a week. The trust boundary is
- * therefore: whoever reaches this can evaluate expressions as the connected role.
- * Give it a role that owns its own schema and nothing else — the README says so.
+ * It does not restrict which functions you may call. now() and gen_random_uuid()
+ * are most of why people write defaults, and an allowlist would be wrong inside a
+ * week. So the trust boundary is: whoever reaches this evaluates expressions as
+ * the connected role. Give it a role that owns its schema and nothing else. The
+ * README says the same.
  */
 
-/** Long enough for any real constraint, short enough not to be a payload. */
+/** Long enough for a real constraint, short enough not to be a payload. */
 const MAX_LENGTH = 1000;
 
 /** The problem with `expr`, or null if there isn't one. */
@@ -47,9 +45,9 @@ const FORBIDDEN: ReadonlyArray<readonly [string, string, string]> = [
 ];
 
 /**
- * Walk the expression once, tracking whether we are inside a string literal, and
- * report the first thing that does not close. An unbalanced quote or parenthesis
- * is how an expression escapes the `CHECK (...)` that wraps it.
+ * One pass, tracking whether we're inside a string literal, reporting the first
+ * thing that doesn't close. An unbalanced quote or paren is how an expression
+ * escapes the CHECK (...) wrapped around it.
  */
 function unbalanced(expr: string): string | null {
   let depth = 0;

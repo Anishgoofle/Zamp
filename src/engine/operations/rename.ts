@@ -1,16 +1,16 @@
-import { canonical } from '../internal/canonical';
-import { assertUniqueIds, byId } from '../internal/collections';
-import type { Column, ColumnConstraint, Schema, Table } from '../model/types';
+import { canonical } from '../internal/canonical.js';
+import { assertUniqueIds, byId } from '../internal/collections.js';
+import type { Column, ColumnConstraint, Schema, Table } from '../model/types.js';
 
 export interface RenameMatch {
   scope: 'table' | 'column';
-  /** Present for columns: the (already reconciled) table id the column lives in. */
+  /** Columns only: the already-reconciled table id the column lives in. */
   tableId?: string;
   /** The id `before` uses. The returned schema keeps this id. */
   keptId: string;
   /** The id `after` used for the same entity. */
   incomingId: string;
-  /** `name` — matched by identical name (ids regenerated); `signature` — matched by structure (a real rename). */
+  /** `name`: matched on an identical name, so ids were regenerated. `signature`: matched on structure, so it's a real rename. */
   by: 'name' | 'signature';
 }
 
@@ -21,12 +21,13 @@ export interface RenameResult {
 }
 
 /**
- * Heuristic layer for schemas that arrive without stable ids (e.g. parsed from
- * DDL). Aligns `after`'s tables and columns to `before` — first by identical
- * name, then by structural signature for the leftovers (a real rename) — and
- * reuses `before`'s id, so a following `diff` reports `rename_*` or nothing
- * instead of drop + add. Only unambiguous matches are taken; see
- * ../../../decisions.md.
+ * Heuristic layer for schemas that arrive without stable ids, e.g. parsed from
+ * DDL. Aligns `after`'s tables and columns onto `before`: identical names first,
+ * then structural signature for whatever is left over, which is where the real
+ * renames turn up. Matched entities take `before`'s id, so the following `diff`
+ * reports `rename_*` or nothing instead of a drop and an add.
+ *
+ * Only unambiguous matches are taken. decisions.md covers why.
  */
 export function detectRenames(before: Schema, after: Schema): RenameResult {
   assertUniqueIds(before, 'detectRenames (before)');
@@ -65,10 +66,9 @@ export function detectRenames(before: Schema, after: Schema): RenameResult {
 }
 
 /**
- * A foreign key holds its target by id. Once entities are reconciled to
- * `before`'s ids, rewrite those references so they point at the kept ids —
- * otherwise a following `diff` sees the FK as changed and `validate` sees it as
- * dangling.
+ * A foreign key holds its target by id, so once entities are reconciled to
+ * `before`'s ids those references have to be rewritten too. Skip this and the
+ * next `diff` sees the FK as changed and `validate` sees it as dangling.
  */
 function remapForeignKeys(schema: Schema, matches: RenameMatch[]): void {
   const tableIdOf = new Map<string, string>();
@@ -141,7 +141,7 @@ function uniqueMatch<T>(items: readonly T[], predicate: (item: T) => boolean): T
   return hits.length === 1 ? hits[0] : undefined;
 }
 
-/** Column structure minus id and name — a rename changes only the name. */
+/** Column structure minus id and name, since a rename changes only the name. */
 function columnSignature(column: Column): string {
   return canonical({
     type: column.type,
@@ -151,9 +151,9 @@ function columnSignature(column: Column): string {
 }
 
 /**
- * A foreign key's target ids are regenerated along with everything else in the
- * parsed-DDL case, so matching on them would defeat the point. Reduce an FK to
- * its kind; `remapForeignKeys` fixes the actual references afterwards.
+ * In the parsed-DDL case an FK's target ids were regenerated along with
+ * everything else, so matching on them would defeat the point. Reduce an FK to
+ * its kind and let `remapForeignKeys` fix the references afterwards.
  */
 function constraintSignature(constraint: ColumnConstraint): string {
   return constraint.kind === 'foreign_key'
@@ -162,10 +162,10 @@ function constraintSignature(constraint: ColumnConstraint): string {
 }
 
 /**
- * Table structure minus id and name — the multiset of its column signatures.
- * Column *names* are excluded too, so a table that was renamed *and* had a
- * column renamed still matches (the phase-2 uniqueness check guards against
- * matching two unrelated tables that share a column shape).
+ * Table structure minus id and name: the multiset of its column signatures.
+ * Column names are excluded too, so a table that was renamed and also had a
+ * column renamed still matches. The uniqueness check in phase 2 is what stops
+ * two unrelated tables with the same column shape matching each other.
  */
 function tableSignature(table: Table): string {
   return canonical(table.columns.map(columnSignature).sort());

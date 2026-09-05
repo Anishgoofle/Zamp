@@ -1,13 +1,13 @@
-import { canonical, canonicalize } from '../internal/canonical';
-import type { Change } from '../model/change';
-import { assertUniqueIds, byId } from '../internal/collections';
-import type { Column, Schema, Table } from '../model/types';
+import { canonical, canonicalize } from '../internal/canonical.js';
+import type { Change } from '../model/change.js';
+import { assertUniqueIds, byId } from '../internal/collections.js';
+import type { Column, Schema, Table } from '../model/types.js';
 
 /**
- * Turn `before` into `after`, as one flat array of field-level changes in a
- * deterministic order (see ../../../decisions.md). Depends only on schema content,
- * not array ordering. Inputs are not mutated; embedded objects are fresh clones.
- * Throws on duplicate table/column ids (see `assertUniqueIds`).
+ * Turn `before` into `after` as one flat array of field-level changes, in a
+ * deterministic order (decisions.md). Depends on schema content only, never on
+ * array ordering. Inputs aren't mutated and embedded objects are fresh clones.
+ * Throws on duplicate table or column ids; see `assertUniqueIds`.
  */
 export function diff(before: Schema, after: Schema): Change[] {
   assertUniqueIds(before, 'diff (before)');
@@ -102,9 +102,9 @@ function diffConstraints(
   after: Column,
   out: Change[],
 ): void {
-  // Keyed by canonical form: a column that (invalidly) repeats an identical
-  // constraint collapses to one entry, so diff never emits a duplicate
-  // add/drop_constraint. Constraints are a set — see ../../../decisions.md.
+  // Keyed by canonical form, so a column that invalidly repeats an identical
+  // constraint collapses to one entry and diff never emits a duplicate
+  // add/drop_constraint. Constraints are a set (decisions.md).
   const beforeByKey = new Map(before.constraints.map((c) => [canonical(c), c]));
   const afterByKey = new Map(after.constraints.map((c) => [canonical(c), c]));
 
@@ -122,7 +122,7 @@ function diffConstraints(
 
 /**
  * Rank within one (tableId, columnSlot) group. Table- and column-level kinds can
- * reuse numbers — the empty vs. real columnSlot already separates them.
+ * reuse numbers, since an empty columnSlot already separates them.
  */
 const KIND_RANK: Record<Change['kind'], number> = {
   add_table: 0,
@@ -164,9 +164,9 @@ function sortKey(change: Change): string {
   ].join('\u0000');
 }
 
-// Embedded payloads are fully normalized — object keys sorted (canonicalize),
-// columns ordered by id, constraints ordered canonically — so that diff output
-// is a pure function of schema content, byte-stable under JSON.stringify.
+// Embedded payloads are fully normalized: object keys sorted (canonicalize),
+// columns ordered by id, constraints ordered canonically. That makes diff output
+// a pure function of schema content, byte-stable under JSON.stringify.
 function embedTable(table: Table): Table {
   const clone = canonicalize(table);
   clone.columns.sort(compareById);

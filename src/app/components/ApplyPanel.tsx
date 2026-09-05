@@ -4,10 +4,9 @@ import type { ApplyResponse } from '../lib/api';
 import { PlanView } from './PlanView';
 
 /**
- * Run a plan against the connected database. Two buttons, deliberately: the
- * rehearsal runs every statement for real inside a transaction and then rolls it
- * back, so "does this migration survive contact with the actual rows" is a
- * question you can answer before committing to it.
+ * Run a plan against the connected database. Two buttons on purpose: the rehearsal
+ * runs every statement for real inside a transaction and rolls it back, so you can
+ * find out whether the migration survives the actual rows before committing to it.
  */
 export function ApplyPanel({
   plan,
@@ -33,7 +32,7 @@ export function ApplyPanel({
   error: string | null;
   onRun: (dryRun: boolean) => void;
 }) {
-  // Local view state, not app state: whether the confirm step is showing.
+  // View state, not app state: whether the confirm step is showing.
   const [confirming, setConfirming] = useState(false);
   const blocked = plan.hazards.some((h) => h.severity === 'blocked');
   const empty = plan.steps.length === 0;

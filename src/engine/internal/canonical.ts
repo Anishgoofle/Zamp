@@ -36,10 +36,10 @@ function sortKeys(value: unknown): unknown {
 }
 
 /**
- * A short, stable identity for a value's canonical form. Used to notice that a
- * live database changed between planning a migration and running it. FNV-1a, so
- * it is a drift detector and not a security primitive — a deliberate collision is
- * possible, an accidental one is not worth worrying about.
+ * Short, stable identity for a value's canonical form. Used to notice a live
+ * database changing between planning a migration and running it. FNV-1a: a drift
+ * detector, not a security primitive. Deliberate collisions are possible;
+ * accidental ones aren't worth worrying about.
  */
 export function fingerprint(value: unknown): string {
   const text = canonical(value);

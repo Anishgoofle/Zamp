@@ -1,9 +1,9 @@
-import type { Column, ColumnConstraint, ColumnType, Table } from './types';
+import type { Column, ColumnConstraint, ColumnType, Table } from './types.js';
 
 /**
  * The diff vocabulary: `diff` emits it, `apply` consumes it. Field-level, so a
- * type change and a nullability change on one column are separate entries and
- * don't conflict (see ../../../decisions.md). Add/drop kinds carry the whole,
+ * type change and a nullability change on the same column are separate entries
+ * and don't conflict (decisions.md covers why). Add/drop kinds carry the whole
  * normalized object.
  */
 export type Change =

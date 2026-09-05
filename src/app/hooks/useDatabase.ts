@@ -18,14 +18,14 @@ export interface Database {
 }
 
 /**
- * The live-database half of the workbench: read a schema out of Postgres, and push
- * one back. Kept apart from the merge state because the two fail in completely
- * different ways — a merge conflict is something to resolve, a dropped connection
- * is something to retry — and mixing them made both harder to reason about.
+ * The live-database half of the workbench: read a schema out of Postgres, push one
+ * back. Kept apart from the merge state because the two fail differently. A merge
+ * conflict is something to resolve, a dropped connection something to retry, and
+ * holding both in one reducer made each harder to follow.
  *
- * The connection string lives here and nowhere else. It is not persisted: a
- * password in `localStorage` outlives the tab, the session and the person's
- * memory of having typed it.
+ * The connection string lives here and nowhere else, and is never persisted. A
+ * password in localStorage outlives the tab, the session, and the memory of
+ * having typed it.
  */
 export function useDatabase(): Database {
   const [connection, setConnection] = useState<Connection>({ connectionString: '', schema: 'public' });
@@ -54,8 +54,8 @@ export function useDatabase(): Database {
       applySchema({ ...connection, target, expect: live.fingerprint, ...options })
         .then((response) => {
           setOutcome(response);
-          // A real apply moves the database on, so the schema we hold — and the
-          // fingerprint that guards the next apply — have to move with it.
+          // A real apply moves the database on, so the schema we hold has to move
+          // with it, and so does the fingerprint guarding the next apply.
           if (!response.dryRun) {
             setLive({
               schema: response.schema,

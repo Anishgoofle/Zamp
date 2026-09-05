@@ -3,9 +3,9 @@ import { detectRenames, diff, introspect, migrate } from '@engine';
 import type { CatalogColumn, CatalogConstraint } from '@engine';
 
 /**
- * Catalog rows exactly as `api/_catalog.ts` reads them. Building them by hand
- * keeps the mapping testable without a database — the SQL that produces them is
- * three plain `SELECT`s and the interesting part is what we do with the answers.
+ * Catalog rows exactly as postgres/catalog.ts reads them. Building them by hand
+ * keeps the mapping testable without a database. The SQL behind them is three
+ * plain SELECTs; the interesting part is what we do with the answers.
  */
 function col(over: Partial<CatalogColumn> & Pick<CatalogColumn, 'attnum' | 'name'>): CatalogColumn {
   return {
@@ -61,7 +61,7 @@ describe('introspect', () => {
       expect(typeOf('jsonb')).toEqual({ kind: 'other', sql: 'jsonb' });
       expect(typeOf('uuid')).toEqual({ kind: 'other', sql: 'uuid' });
       expect(typeOf('text[]')).toEqual({ kind: 'other', sql: 'text[]' });
-      // An unbounded varchar is not the same as `text` for a diff, so it isn't one.
+      // For a diff, an unbounded varchar is not the same as text, so it isn't one.
       expect(typeOf('character varying')).toEqual({ kind: 'other', sql: 'character varying' });
     });
 
@@ -168,7 +168,7 @@ describe('introspect', () => {
         ],
         [con({ type: 'u', columns: [1, 2], name: 'users_a_b_key' })],
       );
-      // Absent from both sides of any diff, so it is never dropped — but say so.
+      // Absent from both sides of any diff, so never dropped. Still worth saying.
       expect(schema.tables[0]!.columns.flatMap((c) => c.constraints)).toEqual([]);
       expect(notes[0]).toContain('users_a_b_key');
       expect(notes[0]).toContain('not dropped');
@@ -193,9 +193,9 @@ describe('introspect', () => {
   });
 
   /**
-   * The reason ids come from the catalog at all. A rename is instant and a
-   * drop-and-recreate is not recoverable, so getting this wrong on a live table
-   * is the worst failure this tool has.
+   * The reason ids come from the catalog at all. A rename is instant; a drop and
+   * recreate isn't recoverable. Getting this wrong on a live table is the worst
+   * thing this tool can do.
    */
   describe('renames', () => {
     const columns = (name: string): CatalogColumn[] => [
@@ -218,14 +218,14 @@ describe('introspect', () => {
         [],
       ).schema;
 
-      // Different databases, unrelated oids: nothing pairs up, so every table is
-      // a drop and an add — which on a real table is every row in it.
+      // Different databases have unrelated oids, so nothing pairs up and every
+      // table becomes a drop and an add. On a real table that's every row in it.
       expect(migrate(staging, diff(staging, production))).toEqual([
         'DROP TABLE "users";',
         'CREATE TABLE "users" (\n  "id" integer NOT NULL,\n  "email_address" text NOT NULL\n);',
       ]);
 
-      // Aligning them first turns it back into the one-line metadata change it is.
+      // Aligning them first turns it back into the metadata change it actually is.
       const aligned = detectRenames(staging, production).schema;
       expect(migrate(staging, diff(staging, aligned))).toEqual([
         'ALTER TABLE "users" RENAME COLUMN "email" TO "email_address";',

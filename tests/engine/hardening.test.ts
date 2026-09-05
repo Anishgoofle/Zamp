@@ -17,8 +17,8 @@ const errorsFor = (value: unknown): string => (parseSchema(value).errors ?? []).
 
 /**
  * `check` and `default` are the only two places a caller's own SQL text reaches
- * generated DDL. Everything here is an attempt to turn one expression into
- * something else — see src/engine/operations/sqlExpression.ts.
+ * generated DDL. Every case here is an attempt to turn one expression into
+ * something else. See src/engine/operations/sqlExpression.ts.
  */
 describe('SQL expressions in constraints', () => {
   const rejects = (expr: string, because: string) =>
@@ -70,7 +70,7 @@ describe('identifiers', () => {
   });
 
   it('counts the limit in bytes, not characters', () => {
-    // 32 three-byte characters is 96 bytes — under the character limit, over the real one.
+    // 32 three-byte characters is 96 bytes: under the character limit, over the byte one.
     expect(errorsFor(named('あ'.repeat(32)))).toContain('silently truncate');
   });
 
@@ -80,9 +80,9 @@ describe('identifiers', () => {
   });
 
   /**
-   * A double quote in an identifier is legal Postgres and appears in real
-   * databases, so it is escaped rather than rejected — otherwise the tool could
-   * not read a schema that already contains one.
+   * A double quote in an identifier is legal Postgres and turns up in real
+   * databases, so it gets escaped rather than rejected. Rejecting it would mean
+   * the tool couldn't read a schema that already contains one.
    */
   it('escapes a double quote instead of refusing the schema', () => {
     const before = schema(table('t', 'orders'));

@@ -1,6 +1,6 @@
-import { checkExpression } from './sqlExpression';
-import { validate } from './validate';
-import type { Schema } from '../model/types';
+import { checkExpression } from './sqlExpression.js';
+import { validate } from './validate.js';
+import type { Schema } from '../model/types.js';
 
 export type ParseResult = { schema: Schema; errors: null } | { schema: null; errors: string[] };
 
@@ -8,19 +8,19 @@ const TYPE_KINDS = ['int', 'bigint', 'text', 'varchar', 'boolean', 'timestamp', 
 const CONSTRAINT_KINDS = ['primary_key', 'unique', 'default', 'check', 'foreign_key'];
 
 /**
- * The boundary every untrusted schema crosses — the JSON in the editor, and the
- * target a browser POSTs to `/api/apply`. Past this point a value is typed as
- * `Schema` and trusted, so the shape check has to cover the unions too: an
- * unrecognised `type.kind` would sail through `validate` and come out the other
- * end as `ALTER COLUMN ... TYPE undefined`.
+ * The boundary every untrusted schema crosses: the JSON in the editor, and the
+ * target a browser POSTs to /api/apply. Past here a value is typed as `Schema`
+ * and trusted, so the shape check has to cover the unions too. An unrecognised
+ * type.kind sails through `validate` and comes out as ALTER COLUMN ... TYPE
+ * undefined.
  */
 export function parseSchema(value: unknown): ParseResult {
   if (!looksLikeSchema(value)) {
     return { schema: null, errors: ['Expected { "tables": [ { id, name, columns: [...] } ] }'] };
   }
 
-  // Size, then identifiers, then the SQL fragments, then the invariants. Ordered
-  // so an enormous input is rejected before anything walks it twice.
+  // Size, identifiers, SQL fragments, invariants. In that order, so an enormous
+  // input is rejected before anything walks it twice.
   const errors = [
     ...tooBig(value),
     ...badIdentifiers(value),
@@ -35,11 +35,10 @@ export function parseSchema(value: unknown): ParseResult {
 }
 
 /**
- * Bounds, because everything downstream is at least linear in these and some of
- * it is worse: `detectRenames` compares every unmatched entity against every
- * other. Generous enough for any real schema — the largest production Postgres
- * databases run to a few thousand tables — and small enough that a hand-written
- * request cannot make the server think for a minute.
+ * Bounds. Everything downstream is at least linear in these and some of it is
+ * worse: detectRenames compares every unmatched entity against every other. Set
+ * generously (the largest production Postgres databases run to a few thousand
+ * tables) but low enough that a hand-written request can't stall the server.
  */
 const MAX_TABLES = 2_000;
 const MAX_COLUMNS = 20_000;
@@ -67,10 +66,10 @@ function tooBig(schema: Schema): string[] {
 }
 
 /**
- * Postgres silently truncates an identifier at 63 *bytes*, so two names that
- * differ only past that point become the same object. Generated constraint names
- * concatenate a table and a column name, so the budget is tighter than it looks —
- * reject early rather than emit DDL that means something else than it reads.
+ * Postgres silently truncates identifiers at 63 bytes, so two names differing only
+ * past that point collapse into one object. Generated constraint names concatenate
+ * a table and a column name, so the real budget is tighter than it looks. Reject
+ * early rather than emit DDL that means something other than it reads.
  */
 const MAX_IDENTIFIER_BYTES = 63;
 

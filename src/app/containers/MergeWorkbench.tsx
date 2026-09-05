@@ -19,15 +19,15 @@ type Side = 'ours' | 'theirs';
 const NO_CONFLICTS: readonly Conflict[] = [];
 
 /**
- * A pick belongs to a conflict *and* to the two sides it was choosing between.
- * Conflict ids are location-only, so keying on the id alone would silently carry
- * a choice over to a differently-valued conflict in the same slot after an edit.
+ * A pick belongs to a conflict and to the two sides it chose between. Conflict ids
+ * are location-only, so keying on the id alone would quietly carry a choice over
+ * to a differently-valued conflict in the same slot after an edit.
  */
 function pickKey(conflict: Conflict): string {
   return [conflict.id, JSON.stringify(conflict.ours), JSON.stringify(conflict.theirs)].join('|');
 }
 
-/** Owns the three editable schemas and the conflict picks; everything else is derived per render. */
+/** Owns the three editable schemas and the conflict picks. The rest is derived per render. */
 export function MergeWorkbench() {
   const [baseText, setBaseText] = useState(() => serializeSchema(example.base));
   const [oursText, setOursText] = useState(() => serializeSchema(example.ours));
@@ -51,8 +51,8 @@ export function MergeWorkbench() {
 
   const result = merged?.result ?? null;
   const conflicts = result?.conflicts ?? NO_CONFLICTS;
-  // `pickKey` stringifies both sides of every conflict, so this is not free at
-  // 200 tables — and it would otherwise re-run on every keystroke and every pick.
+  // `pickKey` stringifies both sides of every conflict, which isn't free at 200
+  // tables, and this would otherwise re-run on every keystroke and every pick.
   const unresolved = useMemo(
     () => conflicts.filter((c) => !picks[pickKey(c)]),
     [conflicts, picks],
@@ -77,16 +77,16 @@ export function MergeWorkbench() {
     }
   }, [result, picksById, unresolved.length]);
 
-  // No fallback to `result.schema`: that is the *pre*-resolution merge, with
-  // conflicted slots still at their base values. Showing it as the final schema
-  // would silently discard the user's picks.
+  // No fallback to `result.schema`. That's the pre-resolution merge, conflicted
+  // slots still sitting at their base values, and showing it as the final schema
+  // would quietly throw away the user's picks.
   const finalSchema = resolved?.schema ?? null;
   const finalErrors = resolved?.errors ?? [];
   const invalid = finalErrors.length > 0;
 
-  // Sizes from the connected database, so "this rewrites the table" can say how
-  // big the table is. Ids have to line up: once `base` has been edited into a
-  // different database's schema, the live sizes describe something else.
+  // Sizes from the connected database, so "rewrites the table" can say how big
+  // the table is. The ids have to line up: once `base` has been edited into some
+  // other database's schema, these sizes describe a different thing.
   const live = db.live;
   const stats = useMemo(() => {
     if (!live || !base.schema) return {};
@@ -124,8 +124,8 @@ export function MergeWorkbench() {
     [finalSchema, ours.schema, theirs.schema, base.schema],
   );
 
-  // Serialising the whole schema twice per render is the single most expensive
-  // thing left on this path once the branch diffs are memoised.
+  // With the branch diffs memoised, serialising the whole schema twice per render
+  // is the most expensive thing left on this path.
   const mergedJson = useMemo(() => (finalSchema ? serializeSchema(finalSchema) : ''), [finalSchema]);
   const baseJson = useMemo(() => (base.schema ? serializeSchema(base.schema) : ''), [base.schema]);
 

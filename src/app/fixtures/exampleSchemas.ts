@@ -52,7 +52,7 @@ export const ours = from((s) => {
   s.tables[1].columns[1].type = { kind: 'varchar', length: 200 };
 });
 
-// make email unique, add a tags table, widen title to varchar(120) — conflicts with ours
+// make email unique, add a tags table, widen title to varchar(120): conflicts with ours
 export const theirs = from((s) => {
   s.tables[0].columns[1].constraints = [{ kind: 'unique' }];
   s.tables[1].columns[1].type = { kind: 'varchar', length: 120 };
