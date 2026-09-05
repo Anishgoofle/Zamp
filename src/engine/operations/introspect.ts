@@ -1,10 +1,10 @@
-import type { Column, ColumnType, Schema, Table } from '../model/types';
-import type { TableStats } from './plan';
+import type { Column, ColumnType, Schema, Table } from '../model/types.js';
+import type { TableStats } from './plan.js';
 
 /**
- * The catalog rows `introspect` expects. Kept as an explicit interface rather than
- * `any` from the driver so the mapping is testable without a database — the SQL
- * that produces these lives in `api/_introspect-sql.ts`.
+ * The catalog rows `introspect` expects. An explicit interface rather than `any`
+ * off the driver, so the mapping is testable without a database. The SQL that
+ * produces them lives in postgres/catalog.ts.
  */
 export interface CatalogColumn {
   tableOid: string;
@@ -13,7 +13,7 @@ export interface CatalogColumn {
   attnum: number;
   name: string;
   notNull: boolean;
-  /** `format_type(atttypid, atttypmod)` — e.g. `character varying(200)`. */
+  /** `format_type(atttypid, atttypmod)`, e.g. "character varying(200)". */
   formattedType: string;
   /** `pg_get_expr(adbin, adrelid)`, or null when the column has no default. */
   defaultExpr: string | null;
@@ -29,7 +29,7 @@ export interface CatalogConstraint {
   /** For a foreign key: the referenced table's oid and attribute numbers. */
   refTableOid: string | null;
   refColumns: number[] | null;
-  /** `pg_get_constraintdef` — the only place a CHECK expression is available. */
+  /** `pg_get_constraintdef`. The only place a CHECK expression is available. */
   definition: string;
 }
 
@@ -44,10 +44,10 @@ export interface Introspection {
   /** Live table sizes keyed by table id, ready to hand to `plan`. */
   stats: Record<string, TableStats>;
   /**
-   * Everything in the database this model does not represent. Nothing here is
-   * silently discarded: an unmodelled *type* is preserved verbatim, and anything
-   * else (a multi-column unique key, a table-level check) is left alone on both
-   * sides of a diff — so it is never dropped, but this tool won't manage it either.
+   * Everything in the database this model doesn't represent. Nothing here is
+   * silently discarded. An unmodelled type is kept verbatim; anything else, like
+   * a multi-column unique key or a table-level check, is left alone on both sides
+   * of a diff. Never dropped, but not managed either.
    */
   notes: string[];
 }
@@ -55,12 +55,12 @@ export interface Introspection {
 /**
  * Build a `Schema` from Postgres catalog rows.
  *
- * Ids come from the catalog, not from us: a table is its `oid`, a column is
- * `oid.attnum`. Both are stable across renames and across repeated reads of the
- * *same* database, which is what makes a rename in a live database diff as a
- * rename rather than a drop and an add. Two *different* databases (staging vs
- * production) have unrelated oids, so comparing those needs `detectRenames`
- * first — see ../../../decisions.md.
+ * Ids come from the catalog rather than from us: a table is its oid, a column is
+ * oid.attnum. Both survive renames and repeated reads of the same database, which
+ * is what makes a rename diff as a rename instead of a drop plus an add.
+ *
+ * Two different databases (staging against production) have unrelated oids, so
+ * comparing those needs `detectRenames` first. See decisions.md.
  */
 export function introspect(
   columns: readonly CatalogColumn[],
@@ -99,7 +99,7 @@ export function introspect(
     const target = (attnum: number): Column | undefined => columnsOf.get(attnum);
 
     if (row.type === 'p') {
-      // A composite primary key is represented as `primary_key` on each member —
+      // A composite primary key becomes `primary_key` on each member column, and
       // `plan` collapses them back into one PRIMARY KEY (a, b).
       for (const attnum of row.columns) target(attnum)?.constraints.push({ kind: 'primary_key' });
       continue;
@@ -158,9 +158,9 @@ function describeConstraintType(type: CatalogConstraint['type']): string {
 
 /**
  * Map `format_type` output onto the model. Anything not spelled out becomes
- * `{ kind: 'other', sql }`, which round-trips the type verbatim — the column stays
- * in the schema, diffs correctly against itself, and is never dropped just because
- * we don't have a case for `jsonb`.
+ * `{ kind: 'other', sql }` and round-trips verbatim, so the column stays in the
+ * schema and diffs correctly against itself rather than being dropped because
+ * there's no case for jsonb.
  */
 function parseType(formatted: string): ColumnType {
   const type = formatted.trim();
@@ -188,9 +188,8 @@ function parseType(formatted: string): ColumnType {
 }
 
 /**
- * `pg_get_constraintdef` returns `CHECK ((price > 0))`. Strip the keyword and the
- * one layer of parentheses Postgres always adds, so the expression reads the way
- * someone would have written it.
+ * pg_get_constraintdef returns `CHECK ((price > 0))`. Strip the keyword and the
+ * layer of parens Postgres always adds, so it reads the way someone wrote it.
  */
 function checkExpression(definition: string): string | null {
   const body = definition.trim().replace(/\s+NOT VALID$/i, '');
@@ -198,7 +197,7 @@ function checkExpression(definition: string): string | null {
   return match ? stripOuterParens(match[1]!.trim()) : null;
 }
 
-/** `((price > 0))` → `price > 0`. Leaves `(a > 0) AND (b > 0)` alone. */
+/** `((price > 0))` becomes `price > 0`. Leaves `(a > 0) AND (b > 0)` alone. */
 function stripOuterParens(expr: string): string {
   let out = expr;
   while (wrappedInOneGroup(out)) out = out.slice(1, -1).trim();

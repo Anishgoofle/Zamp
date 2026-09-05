@@ -1,9 +1,9 @@
-import type { Schema } from '../model/types';
+import type { Schema } from '../model/types.js';
 
 /**
- * Branch a schema. Plain data with stable ids, so this is just a structural
- * clone — `diff` later re-pairs by id. Branch metadata (name, parent) is the
- * app's concern and wraps a `Schema` rather than living in it.
+ * Branch a schema. Plain data with stable ids, so a structural clone is all it
+ * takes; `diff` re-pairs by id later. Branch metadata (name, parent) belongs to
+ * the app and wraps a Schema rather than living inside one.
  */
 export function branch(schema: Schema): Schema {
   return structuredClone(schema);

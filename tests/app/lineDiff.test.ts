@@ -13,17 +13,17 @@ function lcsLength(a: readonly string[], b: readonly string[]): number {
 }
 
 /**
- * A result is correct when it marks as few lines as possible *and* the lines it
+ * A result is correct when it marks as few lines as possible and the lines it
  * leaves unmarked really do appear in `before`, in order. Asserting the exact set
- * would be wrong: where several shortest edit scripts exist, Myers may pick a
- * different one from the LCS walk, and both are right.
+ * would be wrong: where several shortest edit scripts exist, Myers can pick a
+ * different one from the LCS walk and both are right.
  */
 function check(beforeLines: string[], afterLines: string[]): number[] {
   const changed = changedLines(beforeLines.join('\n'), afterLines.join('\n'));
 
-  // Compare against what the function actually sees. Joining and re-splitting is
-  // not a round trip at the edges — `[]` comes back as `['']` — and the oracle has
-  // to model the same input or it grades a different question.
+  // Compare against what the function actually sees. Joining and re-splitting
+  // isn't a round trip at the edges (`[]` comes back as `['']`), and the oracle
+  // has to model the same input or it grades a different question.
   const before = beforeLines.join('\n').split('\n');
   const after = afterLines.join('\n').split('\n');
 
@@ -86,7 +86,7 @@ describe('changedLines', () => {
   });
 
   /**
-   * The case that used to kill the tab: a schema read out of a real database,
+   * The case that used to kill the tab: a schema read out of a real database and
    * edited slightly. The old full-matrix LCS asked for 3 billion cells here.
    */
   it('diffs a 60,000-line schema in milliseconds', () => {

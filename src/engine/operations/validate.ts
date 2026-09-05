@@ -1,4 +1,4 @@
-import type { Schema } from '../model/types';
+import type { Schema } from '../model/types.js';
 
 export interface ValidationError {
   message: string;
@@ -7,10 +7,10 @@ export interface ValidationError {
 }
 
 /**
- * The explicit invariant pass the plain-data model can't enforce at
- * construction (see ../../../decisions.md): unique table ids and names, unique
- * column ids and names per table, resolvable foreign keys. Returns every problem
- * found. Callers run this on import; `diff`/`apply` assume it has passed.
+ * The invariants a plain-data model can't enforce at construction (decisions.md):
+ * unique table ids and names, unique column ids and names within a table,
+ * resolvable foreign keys. Returns every problem it finds. Callers run it on
+ * import; `diff` and `apply` assume it has already passed.
  */
 export function validate(schema: Schema): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -50,8 +50,8 @@ export function validate(schema: Schema): ValidationError[] {
       }
       seenColumnNames.add(column.name);
     }
-    // Union, not overwrite: a duplicated table id shouldn't also trigger a
-    // spurious "unknown column" error for FKs that point at it.
+    // Union rather than overwrite, so a duplicated table id doesn't also produce
+    // a spurious "unknown column" for every FK pointing at it.
     const known = columnIdsByTable.get(table.id);
     if (known === undefined) {
       columnIdsByTable.set(table.id, seenColumnIds);

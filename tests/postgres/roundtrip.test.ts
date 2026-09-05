@@ -6,16 +6,16 @@ import type { Queryable, Schema, StepResult } from '@engine';
 /**
  * The whole loop against a real Postgres: read a schema out of the catalog, plan a
  * change, run it, read it back. PGlite is Postgres 18 compiled to wasm and runs
- * in-process, so this needs no server, no container and no fixture database — which
- * is the only reason a test like this gets written and kept.
+ * in-process, so there's no server, no container and no fixture database to keep
+ * alive. That's the only reason tests like these get written and then kept.
  *
- * These are the tests that catch what unit tests can't: DDL that is syntactically
- * fine and rejected by the real planner, a constraint that passes on an empty table
- * and fails on the rows, and the difference between a rename and a drop.
+ * They catch what unit tests can't: DDL that is syntactically fine and rejected by
+ * the real planner, a constraint that passes on an empty table and fails on the
+ * rows, and the difference between a rename and a drop.
  */
 
 let db: PGlite;
-/** PGlite's `query` is close enough to `pg`'s; the engine only asks for `{ rows }`. */
+/** PGlite's `query` is close enough to pg's. The engine only asks for `{ rows }`. */
 let sql: Queryable;
 
 beforeEach(async () => {
@@ -77,8 +77,8 @@ describe('against a real Postgres', () => {
     });
 
     expect(ok(await applyTo(target))).toBe(true);
-    // Read it back from the catalog and diff against the target *as the database
-    // now reports it* — a second apply must be a no-op.
+    // Read it back from the catalog and diff against the target as the database
+    // now reports it. A second apply has to be a no-op.
     const after = await read();
     expect(diff(after, after)).toEqual([]);
     expect(after.tables[0]!.columns.map((c) => c.name)).toEqual(['id', 'email', 'display_name']);
@@ -217,7 +217,7 @@ describe('against a real Postgres', () => {
       expect(failed?.sql).toContain('VALIDATE CONSTRAINT');
       expect(failed?.error).toContain('users_nickname_not_null');
 
-      // And the column is still nullable — the batch rolled back.
+      // And the column is still nullable, because the batch rolled back.
       expect((await read()).tables[0]!.columns[2]!.nullable).toBe(true);
     });
 
@@ -228,7 +228,7 @@ describe('against a real Postgres', () => {
       });
       const results = await applyTo(target);
       expect(results[0]!.status).toBe('failed');
-      // Postgres puts the offending value in `detail`, not in the message —
+      // Postgres puts the offending value in `detail` rather than the message,
       // which is the difference between "it failed" and "here is the row".
       expect(results[0]!.error).toContain('could not create unique index');
       expect(results[0]!.error).toContain('(email)=(user1@example.com) is duplicated');
@@ -244,8 +244,8 @@ describe('against a real Postgres', () => {
 
       const results = await applyTo(target);
       expect(results.some((r) => r.status === 'failed')).toBe(true);
-      // The rename succeeded inside the transaction and went back out with it —
-      // reported as skipped, not as ok.
+      // The rename succeeded inside the transaction and went back out with it,
+      // so it reports as skipped rather than ok.
       expect(results.filter((r) => r.status === 'ok')).toEqual([]);
       expect((await read()).tables[0]!.columns[1]!.name).toBe('email');
     });
@@ -285,7 +285,7 @@ describe('against a real Postgres', () => {
       const live = await read();
       expect(live.tables[0]!.columns[2]!.type).toEqual({ kind: 'other', sql: 'jsonb' });
 
-      // Rename something else entirely; the jsonb column must not be touched.
+      // Rename something else entirely. The jsonb column must not be touched.
       const target = edit(live, (s) => {
         s.tables[0]!.columns[1]!.name = 'email_address';
       });
@@ -342,8 +342,8 @@ describe('creating a schema from nothing', () => {
       ],
     };
 
-    // `posts` references `users`; the plan has to create `users` first even though
-    // nothing in the change list says so.
+    // `posts` references `users`, so the plan has to create `users` first even
+    // though nothing in the change list says so.
     expect(ok(await applyTo(target))).toBe(true);
 
     const after = await read();

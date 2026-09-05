@@ -5,20 +5,19 @@ import type { Plugin } from 'vite';
 import { startDevDatabase } from './dev-database';
 
 /**
- * Serve `api/*.ts` from the Vite dev server the same way Vercel serves them in
- * production, so `npm run dev` is the whole product rather than the half of it
- * that doesn't need a database. Without this, trying the app locally means
- * installing the Vercel CLI and logging in first, which is a lot to ask of
- * someone who just wants to see it work.
+ * Serve `api/*.ts` from the Vite dev server the way Vercel serves them in
+ * production, so `npm run dev` is the whole product and not just the half that
+ * doesn't need a database. The alternative is asking anyone who wants to try it
+ * locally to install the Vercel CLI and log in first.
  *
- * The handlers are loaded through `ssrLoadModule`, so they hot-reload and share
- * the engine source with the client build — one copy of the code, two runtimes.
+ * Handlers load through `ssrLoadModule`, so they hot-reload and share the engine
+ * source with the client build. One copy of the code, two runtimes.
  */
 export function apiRoutes(): Plugin {
   return {
     name: 'api-routes',
     async configureServer(server) {
-      // Only when nothing real is configured — a DATABASE_URL in `.env` wins.
+      // Only when nothing real is configured. A DATABASE_URL in .env wins.
       if (!process.env.DATABASE_URL) {
         const seeded = await startDevDatabase();
         server.config.logger.info(`  \u001b[32m\u2713\u001b[0m dev database ready (${seeded})`);
@@ -55,7 +54,7 @@ export function apiRoutes(): Plugin {
   };
 }
 
-/** Vercel hands the handler a parsed `body`; Node's raw request doesn't have one. */
+/** Vercel hands the handler a parsed `body`. Node's raw request doesn't have one. */
 async function withBody(req: IncomingMessage): Promise<IncomingMessage & { body: unknown }> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);

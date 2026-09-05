@@ -1,26 +1,25 @@
-import { introspect } from '../operations/introspect';
-import type { Introspection } from '../operations/introspect';
+import { introspect } from '../operations/introspect.js';
+import type { Introspection } from '../operations/introspect.js';
 
 /**
- * The one thing this adapter needs from a database driver. Structural, so `pg`,
- * PGlite and anything else with a `query` satisfy it without the engine taking a
- * dependency on any of them — which is also what lets the test suite run the real
- * read-plan-apply cycle against an in-process Postgres.
+ * The one thing this adapter needs from a driver. Structural, so pg, PGlite and
+ * anything else with a `query` satisfy it and the engine depends on none of them.
+ * That's also what lets the tests run a real read-plan-apply cycle in-process.
  */
 export interface Queryable {
   query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
 /**
- * Read a schema out of `pg_catalog`.
+ * Read a schema out of pg_catalog.
  *
- * `information_schema` would be more portable but it can't give us oids, and oids
- * are the whole point: they are the stable identity that makes a rename in a live
- * database read as a rename rather than as a drop and a recreate. It also hides
- * `pg_get_constraintdef`, which is the only way to get a CHECK expression back.
+ * information_schema is more portable but has no oids, and the oids are the
+ * point: they're the stable identity that makes a rename in a live database read
+ * as a rename instead of a drop and a recreate. information_schema also hides
+ * pg_get_constraintdef, the only way to get a CHECK expression back.
  *
- * Only ordinary tables (`relkind = 'r'`) are read. Views, materialised views,
- * partitions and foreign tables are out of scope rather than half-supported.
+ * Only ordinary tables (relkind = 'r'). Views, matviews, partitions and foreign
+ * tables are out of scope rather than half-supported.
  */
 export async function readCatalog(db: Queryable, schemaName: string): Promise<Introspection> {
   const [columns, constraints, sizes] = await Promise.all([
@@ -48,8 +47,8 @@ export async function readCatalog(db: Queryable, schemaName: string): Promise<In
       refColumns: r.refColumns == null ? null : (r.refColumns as number[]).map(Number),
       definition: String(r.definition),
     })),
-    // `bigint` arrives as a string from most drivers, because in general it does
-    // not fit a JS number. Table sizes and row estimates comfortably do.
+    // Most drivers return bigint as a string, since in general it doesn't fit a
+    // JS number. Table sizes and row estimates comfortably do.
     sizes.rows.map((r) => ({
       tableOid: String(r.tableOid),
       rows: Number(r.rows),
@@ -90,10 +89,10 @@ const CONSTRAINTS = `
 `;
 
 /**
- * `reltuples` is the planner's estimate, not a count. `SELECT count(*)` on a 5GB
- * table is exactly the kind of thing this tool exists to avoid, and the estimate
- * is plenty good enough to decide whether a lock matters. It is -1 until the table
- * has been analysed, which `introspect` clamps.
+ * reltuples is the planner's estimate, not a count. Running SELECT count(*) on a
+ * 5GB table is the sort of thing this tool exists to avoid, and an estimate is
+ * plenty for deciding whether a lock matters. It reads -1 until the table has
+ * been analysed; `introspect` clamps that.
  */
 const SIZES = `
   SELECT c.oid::text                         AS "tableOid",

@@ -1,6 +1,6 @@
-import { batches } from '../operations/plan';
-import type { Step } from '../operations/plan';
-import type { Queryable } from './catalog';
+import { batches } from '../operations/plan.js';
+import type { Step } from '../operations/plan.js';
+import type { Queryable } from './catalog.js';
 
 export interface StepResult {
   sql: string;
@@ -17,11 +17,11 @@ export interface RunOptions {
 /**
  * Run the plan for real, then throw it away.
  *
- * A migration fails in two interesting places: generating invalid SQL, and meeting
- * data that doesn't satisfy a new constraint. Both surface here — the statements
- * really execute, against the real rows — and the `ROLLBACK` at the end means
- * finding out costs nothing. `CREATE INDEX CONCURRENTLY` is the exception:
- * Postgres won't run it inside a transaction, so it can't be rehearsed.
+ * Migrations fail in two interesting ways: invalid SQL, and data that doesn't
+ * satisfy a new constraint. Both show up here, because the statements really run
+ * against the real rows, and the ROLLBACK at the end means finding out is free.
+ * CREATE INDEX CONCURRENTLY is the exception; Postgres won't run it inside a
+ * transaction, so it can't be rehearsed.
  */
 export async function rehearse(
   db: Queryable,
@@ -53,9 +53,9 @@ export async function rehearse(
 
 /**
  * Run the plan and keep it. Statements that can share a transaction do, so a
- * failure inside one takes the whole batch back out with it. `CREATE INDEX
- * CONCURRENTLY` has to stand alone, which is exactly why a plan containing one is
- * not all-or-nothing — `plan` says so in its hazards.
+ * failure takes its whole batch back out. CREATE INDEX CONCURRENTLY has to stand
+ * alone, which is why a plan containing one isn't all-or-nothing. `plan` reports
+ * that as a hazard.
  */
 export async function execute(
   db: Queryable,
@@ -80,8 +80,8 @@ export async function execute(
 
     if (batch.runsInTransaction) {
       await db.query(failed ? 'ROLLBACK' : 'COMMIT').catch(() => {});
-      // A rolled-back batch did not happen. Leaving "ok" against statements the
-      // database no longer remembers is the kind of lie that costs someone a day.
+      // A rolled-back batch did not happen. Reporting "ok" for statements the
+      // database no longer remembers would send someone debugging the wrong thing.
       if (failed) {
         for (let i = startOfBatch; i < results.length; i++) {
           if (results[i]!.status === 'ok') results[i]!.status = 'skipped';
@@ -107,12 +107,11 @@ async function runStep(db: Queryable, step: Step, options: RunOptions): Promise<
   }
   const started = Date.now();
   try {
-    // The empty parameter list is load-bearing. Without it `pg` sends the statement
-    // over the *simple* query protocol, which happily runs `a; DROP TABLE b` as two
-    // commands; with it the driver uses the extended protocol, which accepts exactly
-    // one. Nothing here should ever be more than one statement, so making the
-    // driver enforce that costs nothing and closes statement stacking for good —
-    // whatever gets past the checks in `parseSchema`.
+    // The empty parameter list is load-bearing. Without it pg uses the simple
+    // query protocol, which will happily run `a; DROP TABLE b` as two commands.
+    // With it the driver uses the extended protocol, which takes exactly one.
+    // Nothing here is ever more than one statement, so letting the driver enforce
+    // that is free and closes statement stacking whatever slips past parseSchema.
     await db.query(step.sql, []);
     return { sql: step.sql, status: 'ok', ms: Date.now() - started };
   } catch (e) {
@@ -120,7 +119,7 @@ async function runStep(db: Queryable, step: Step, options: RunOptions): Promise<
   }
 }
 
-/** Everything the run never reached, so the report covers the whole plan. */
+/** Everything the run never reached, so the report still covers the whole plan. */
 function fill(results: StepResult[], steps: readonly Step[]): StepResult[] {
   for (let i = results.length; i < steps.length; i++) {
     results.push({ sql: steps[i]!.sql, status: 'skipped', ms: 0 });
@@ -129,8 +128,8 @@ function fill(results: StepResult[], steps: readonly Step[]): StepResult[] {
 }
 
 /**
- * A Postgres error carries more than a message — the constraint that failed, the
- * row that violated it, the hint. Losing those turns "check constraint
+ * A Postgres error carries more than a message: the constraint that failed, the
+ * offending row, the hint. Dropping those turns "check constraint
  * users_email_not_null is violated by some row" into "error".
  */
 function describeError(e: unknown): string {

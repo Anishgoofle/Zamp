@@ -1,13 +1,13 @@
-import type { Queryable } from './src/engine/index';
+import type { Queryable } from './src/engine/index.js';
 
 /**
  * A throwaway Postgres for `npm run dev`, so the app works the moment it opens
- * instead of asking for a connection string first. PGlite is Postgres compiled to
- * wasm and runs inside the dev server, so there is no container to start and
- * nothing to install beyond `npm install`.
+ * rather than asking for a connection string first. PGlite is Postgres compiled
+ * to wasm, running inside the dev server: no container to start, nothing to
+ * install past `npm install`.
  *
- * It lives and dies with the dev server. `api/_db.ts` picks it up off `globalThis`
- * and never imports it, so none of this exists in a deployed build.
+ * Lives and dies with the dev server. api/_db.ts picks it up off globalThis and
+ * never imports it, so none of this reaches a deployed build.
  */
 export async function startDevDatabase(): Promise<string> {
   const { PGlite } = await import('@electric-sql/pglite');
@@ -25,11 +25,13 @@ export async function startDevDatabase(): Promise<string> {
 }
 
 /**
- * Small, but shaped like something real: a foreign key, a composite key, a check,
- * a `jsonb` column the model doesn't spell out, and enough rows that a failing
+ * Small but shaped like something real: a foreign key, a composite key, a check,
+ * a jsonb column the model doesn't spell out, and enough rows that a failing
  * constraint has something to fail on.
+ *
+ * Exported so scripts/seed.ts can put the same schema into a real database.
  */
-const SEED = `
+export const SEED = `
   CREATE TABLE customers (
     id      integer PRIMARY KEY,
     email   text NOT NULL,

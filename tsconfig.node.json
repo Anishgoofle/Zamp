@@ -21,8 +21,9 @@
     ]
   },
   "include": [
-    "vite.config.ts",
+    "dev-database.ts",
+    "scripts",
     "vite-plugin-api.ts",
-    "dev-database.ts"
+    "vite.config.ts"
   ]
 }

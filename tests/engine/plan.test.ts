@@ -3,7 +3,7 @@ import { batches, diff, plan } from '@engine';
 import type { PlanOptions, Schema, Step } from '@engine';
 import { column, schema, table } from './fixtures';
 
-/** Plan `before` → `after` by diffing them first — the documented entry path. */
+/** Plan `before` to `after` by diffing them first: the documented entry path. */
 function planned(before: Schema, after: Schema, options?: PlanOptions) {
   return plan(before, diff(before, after), options);
 }
@@ -12,7 +12,7 @@ function statements(before: Schema, after: Schema, options?: PlanOptions): strin
   return planned(before, after, options).steps.map((s) => s.sql);
 }
 
-/** The one property that matters on a big table: nothing holds the table while scanning it. */
+/** The property that matters on a big table: nothing holds it while scanning it. */
 function blocking(steps: readonly Step[]): string[] {
   return steps.filter((s) => s.lock === 'blocking').map((s) => s.sql);
 }
@@ -119,7 +119,7 @@ describe('plan', () => {
           column('c_label', 'label', { kind: 'text' }, { constraints: [{ kind: 'unique' }] }),
         ),
       );
-      // No CONCURRENTLY, no NOT VALID: the table is empty and holds no traffic.
+      // No CONCURRENTLY, no NOT VALID. The table is empty and serves no traffic.
       expect(statements(before, after).every((s) => !s.includes('CONCURRENTLY'))).toBe(true);
       expect(blocking(planned(before, after).steps)).toEqual([]);
     });

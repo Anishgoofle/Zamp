@@ -1,44 +1,43 @@
-import { apply } from './apply';
-import type { Change } from '../model/change';
-import type { Column, ColumnConstraint, ColumnType, Schema, Table } from '../model/types';
+import { apply } from './apply.js';
+import type { Change } from '../model/change.js';
+import type { Column, ColumnConstraint, ColumnType, Schema, Table } from '../model/types.js';
 
 /**
- * What a statement costs the people using the table while it runs.
+ * What a statement costs everyone else using the table while it runs.
  *
- * - `instant`   — catalog-only. Takes ACCESS EXCLUSIVE for microseconds. Safe at any size.
- * - `concurrent`— may run for minutes, but only takes SHARE UPDATE EXCLUSIVE; reads
- *                 and writes keep working throughout.
- * - `blocking`  — holds ACCESS EXCLUSIVE across a full scan or a heap rewrite. Every
- *                 query on the table queues behind it. This is the one that turns a
- *                 5GB table into an outage.
+ * instant     catalog-only. ACCESS EXCLUSIVE for microseconds. Safe at any size.
+ * concurrent  can run for minutes but only takes SHARE UPDATE EXCLUSIVE, so reads
+ *             and writes keep working.
+ * blocking    holds ACCESS EXCLUSIVE across a full scan or a heap rewrite. Every
+ *             query on the table queues behind it. This is the outage case.
  */
 export type LockLevel = 'instant' | 'concurrent' | 'blocking';
 
 export interface Step {
   sql: string;
-  /** One line on why this statement exists — shown next to it in the UI. */
+  /** One line on why this statement exists. Shown next to it in the UI. */
   intent: string;
   lock: LockLevel;
   /** Postgres reads every row (`VALIDATE CONSTRAINT`, an index build). */
   scans: boolean;
-  /** Postgres writes a new copy of every row. Cost is table size, plus the disk to hold both. */
+  /** Postgres writes a new copy of every row. Costs table size, plus disk for both. */
   rewrites: boolean;
   /** `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block. */
   runsInTransaction: boolean;
   /** The table this touches, for pulling in live size stats. */
   tableId: string | null;
-  /** Discards rows. Instant, irreversible, and the thing to say out loud before applying. */
+  /** Discards data. Instant and irreversible, so the UI confirms before running it. */
   destructive: boolean;
 }
 
 export interface Hazard {
-  /** `blocked` — this will error out or lose data; `warning` — it will work, but it will hurt. */
+  /** `blocked`: this errors or loses data. `warning`: it works, but it costs you. */
   severity: 'blocked' | 'warning';
   message: string;
   tableId: string | null;
 }
 
-/** Live size of one table, straight out of `pg_class` / `pg_total_relation_size`. */
+/** Live size of one table, from `pg_class` and `pg_total_relation_size`. */
 export interface TableStats {
   rows: number;
   bytes: number;
@@ -46,12 +45,12 @@ export interface TableStats {
 
 export interface PlanOptions {
   /**
-   * Rewrite blocking statements into their lock-light equivalents (default `true`).
-   * `false` reproduces the textbook DDL — fine on an empty database, and what
-   * `migrate()` returns.
+   * Rewrite blocking statements into their lock-light equivalents (default true).
+   * `false` gives the textbook DDL instead, which is fine on an empty database and
+   * is what `migrate()` returns.
    */
   online?: boolean;
-  /** Table sizes keyed by table id. Turns "this rewrites the table" into "this rewrites 5.2 GB". */
+  /** Table sizes by table id. Turns "rewrites the table" into "rewrites 5.2 GB". */
   stats?: Readonly<Record<string, TableStats>>;
 }
 
@@ -61,7 +60,7 @@ export interface Plan {
   online: boolean;
 }
 
-/** A run of steps that can share one transaction. Split by the ones that can't be in one. */
+/** A run of steps that can share one transaction. */
 export interface Batch {
   runsInTransaction: boolean;
   steps: Step[];
@@ -70,16 +69,17 @@ export interface Batch {
 /**
  * Turn a change list into an ordered, annotated list of PostgreSQL statements.
  *
- * Two things happen here that a plain DDL renderer doesn't do. The flat diff order
- * is not safe to execute, so changes are re-bucketed into dependency-safe phases
- * (drops → renames → creates → alters → constraints → foreign keys → validation),
- * table drops are FK-ordered, and renames are sequenced so a name is free before
- * anything renames into it. Then, in `online` mode, the four statements that would
- * hold ACCESS EXCLUSIVE across a full table scan are decomposed into forms that
- * don't — see ../../../decisions.md.
+ * Two things happen here that a plain DDL renderer doesn't do.
  *
- * Every statement is annotated with what it locks and for how long, so the caller
- * can refuse to run a plan rather than discover the lock in production.
+ * Ordering: the flat diff order isn't safe to execute, so changes are bucketed
+ * into phases (drops, renames, creates, alters, constraints, foreign keys,
+ * validation). Table drops are FK-ordered and renames are sequenced so a name is
+ * free before anything renames into it.
+ *
+ * Locking: in `online` mode the four statements that would hold ACCESS EXCLUSIVE
+ * across a full table scan get decomposed into forms that don't. Every statement
+ * is annotated with what it locks, so a caller can refuse a plan instead of
+ * finding out in production. Both are argued in decisions.md.
  */
 export function plan(before: Schema, changes: readonly Change[], options: PlanOptions = {}): Plan {
   const online = options.online ?? true;
@@ -137,8 +137,8 @@ export function plan(before: Schema, changes: readonly Change[], options: PlanOp
       }
 
       case 'drop_column':
-        // Postgres only marks the attribute dropped; the row data is reclaimed
-        // lazily. Instant regardless of table size — but irreversible.
+        // Postgres only marks the attribute dropped and reclaims the row data
+        // lazily, so this is instant at any table size. Also irreversible.
         dropColumn.push(
           step(`ALTER TABLE ${q(was.table(change.tableId))} DROP COLUMN ${q(change.column.name)};`, {
             intent: `drop column ${change.column.name}`,
@@ -215,8 +215,8 @@ export function plan(before: Schema, changes: readonly Change[], options: PlanOp
             pkAdded.add(change.tableId);
             continue;
           }
-          // The column is brand new, so nothing to validate against: even in
-          // online mode these can be added outright.
+          // Brand new column, so there is nothing to validate against. These go
+          // on outright even in online mode.
           const bucket = constraint.kind === 'foreign_key' ? addForeignKey : addConstraint;
           bucket.push(
             step(addConstraintStatement(table, change.column.name, constraint, now, nameFor), {
@@ -282,10 +282,10 @@ export function plan(before: Schema, changes: readonly Change[], options: PlanOp
           );
           break;
         }
-        // SET NOT NULL alone seq-scans the table under ACCESS EXCLUSIVE. Since
-        // PG 12 it will instead trust an already-validated CHECK (col IS NOT
-        // NULL), and *that* can be validated without blocking. Four statements
-        // to move the scan out from under the exclusive lock.
+        // SET NOT NULL on its own seq-scans the table under ACCESS EXCLUSIVE.
+        // Since PG 12 it will instead trust an already-validated
+        // CHECK (col IS NOT NULL), and that check can be validated without
+        // blocking. Four statements, but the scan happens outside the lock.
         const guard = nameFor(`${table}_${col}_not_null`);
         addConstraint.push(
           step(
@@ -323,7 +323,7 @@ export function plan(before: Schema, changes: readonly Change[], options: PlanOp
         const table = now.table(change.tableId);
         const column = now.column(change.tableId, change.columnId);
         if (change.constraint.kind === 'default') {
-          // Metadata only since PG 11 — existing rows are not touched.
+          // Metadata only since PG 11. Existing rows are not touched.
           addConstraint.push(
             step(
               `ALTER TABLE ${q(table)} ALTER COLUMN ${q(column)} SET DEFAULT ${change.constraint.expr};`,
@@ -377,8 +377,8 @@ export function plan(before: Schema, changes: readonly Change[], options: PlanOp
       );
       continue;
     }
-    // Build the index without blocking, then adopt it as the constraint. The
-    // ADD CONSTRAINT is then a catalog flip rather than an index build.
+    // Build the index without blocking, then adopt it, so the ADD CONSTRAINT is
+    // a catalog flip rather than an index build.
     const index = nameFor(`${table}_pkey`);
     buildIndex.push(
       step(`CREATE UNIQUE INDEX CONCURRENTLY ${q(index)} ON ${q(table)} (${columns.map(q).join(', ')});`, {
@@ -446,9 +446,9 @@ export function plan(before: Schema, changes: readonly Change[], options: PlanOp
 }
 
 /**
- * Group steps into transactions. Everything runs in one transaction — so a failure
- * rolls the whole migration back — except the statements Postgres refuses to run
- * inside one, which become batches of their own.
+ * Group steps into transactions. Everything shares one transaction, so a failure
+ * rolls the whole migration back. The exception is statements Postgres won't run
+ * inside a transaction; those become batches of their own.
  */
 export function batches(steps: readonly Step[]): Batch[] {
   const out: Batch[] = [];
@@ -475,7 +475,7 @@ interface StepMeta {
   destructive?: boolean;
 }
 
-/** Defaults describe the common case: a catalog-only change, safe at any table size. */
+/** Defaults are the common case: a catalog-only change, safe at any table size. */
 function step(sql: string, meta: StepMeta): Step {
   return {
     sql,
@@ -503,13 +503,13 @@ interface ConstraintSink {
 }
 
 /**
- * Add a constraint to a table that already has rows in it. Each kind has a
- * different way of avoiding the scan-under-exclusive-lock:
+ * Add a constraint to a table that already has rows. Each kind avoids the
+ * scan-under-exclusive-lock differently:
  *
- * - `check` / `foreign_key` — add it `NOT VALID` (no scan), then `VALIDATE
- *   CONSTRAINT` separately, which scans under SHARE UPDATE EXCLUSIVE.
- * - `unique` — there is no `NOT VALID` for uniqueness, so build the index with
- *   `CONCURRENTLY` and then attach it with `ADD CONSTRAINT ... USING INDEX`.
+ * check, foreign_key: add NOT VALID (no scan), then VALIDATE CONSTRAINT on its
+ *   own, which scans under SHARE UPDATE EXCLUSIVE.
+ * unique: there is no NOT VALID for uniqueness, so build the index CONCURRENTLY
+ *   and attach it with ADD CONSTRAINT ... USING INDEX.
  */
 function emitAddConstraint(
   constraint: Exclude<ColumnConstraint, { kind: 'default' | 'primary_key' }>,
@@ -531,8 +531,8 @@ function emitAddConstraint(
   }
 
   if (constraint.kind === 'unique') {
-    // ADD CONSTRAINT ... UNIQUE builds its index under ACCESS EXCLUSIVE. Build it
-    // outside the lock instead, then adopt it — the ALTER is then a catalog flip.
+    // ADD CONSTRAINT ... UNIQUE builds its index under ACCESS EXCLUSIVE. Build
+    // it outside the lock and adopt it, leaving the ALTER as a catalog flip.
     sink.buildIndex.push(
       step(`CREATE UNIQUE INDEX CONCURRENTLY ${q(name)} ON ${q(table)} (${q(column)});`, {
         intent: `build the unique index on ${where} without blocking writes`,
@@ -568,7 +568,7 @@ function emitAddConstraint(
   );
 }
 
-/** What `ADD COLUMN` costs. Since PG 11 a non-volatile default is stored in the catalog, not the heap. */
+/** What ADD COLUMN costs. Since PG 11 a non-volatile default lives in the catalog. */
 function addColumnCost(column: Column): Pick<StepMeta, 'lock' | 'rewrites'> {
   const def = column.constraints.find((c) => c.kind === 'default');
   return def && isVolatile(def.expr)
@@ -610,7 +610,7 @@ function addColumnHazards(
   return [];
 }
 
-/** Functions whose value differs per row, so PG 11's catalog-only default doesn't apply. */
+/** Functions that differ per row, so PG 11's catalog-only default doesn't apply. */
 const VOLATILE = /\b(now|clock_timestamp|current_timestamp|localtimestamp|current_date|current_time|random|gen_random_uuid|uuid_generate_v[14]|nextval)\b/i;
 
 function isVolatile(expr: string): boolean {
@@ -634,10 +634,10 @@ function concurrencyHazards(steps: readonly Step[]): Hazard[] {
 /**
  * Does changing a column's type make Postgres touch the rows?
  *
- * `none` is only for the cases where Postgres has a typmod transform that proves
- * every existing value is still valid: widening a `varchar`, dropping its length
- * limit, or widening a `numeric` at the same scale. Everything else — including
- * `int → bigint`, which looks harmless — rewrites the heap.
+ * `none` covers only the cases where Postgres has a typmod transform proving
+ * every existing value is still valid: widening a varchar, dropping its length
+ * limit, widening a numeric at the same scale. Everything else rewrites the
+ * heap, including int to bigint, which looks like it shouldn't.
  */
 function typeChangeImpact(from: ColumnType, to: ColumnType): 'none' | 'scan' | 'rewrite' {
   if (from.kind === 'varchar' && to.kind === 'text') return 'none';
@@ -654,10 +654,11 @@ function typeChangeImpact(from: ColumnType, to: ColumnType): 'none' | 'scan' | '
 // --- ordering ------------------------------------------------------------
 
 /**
- * Order `DROP TABLE`s so a table is dropped before any table it points at with a
- * foreign key (when both are being dropped). Post-order DFS over the reversed FK
- * graph. A cycle of mutual FKs is broken at an arbitrary edge, and no ordering is
- * FK-safe in that case — it would need `CASCADE` or an explicit constraint drop.
+ * Order DROP TABLEs so a table goes before any table it references, when both are
+ * being dropped. Post-order DFS over the reversed FK graph.
+ *
+ * Mutual FKs form a cycle, which no ordering can make safe; that needs CASCADE or
+ * an explicit constraint drop. We break the cycle at an arbitrary edge.
  */
 function orderTableDrops(
   drops: ReadonlyArray<{ tableId: string; step: Step }>,
@@ -666,7 +667,7 @@ function orderTableDrops(
   const dropped = new Set(drops.map((d) => d.tableId));
   const tableById = new Map(before.tables.map((t) => [t.id, t]));
 
-  // referers.get(target) = dropped tables with an FK into target; each goes first.
+  // referers.get(target): dropped tables with an FK into target. Those go first.
   const referers = new Map<string, Set<string>>(drops.map((d) => [d.tableId, new Set()]));
   for (const { tableId } of drops) {
     for (const column of tableById.get(tableId)?.columns ?? []) {
@@ -700,13 +701,12 @@ interface Rename {
 }
 
 /**
- * Sequence renames so nothing renames into a name that is still occupied: a
- * rename whose target another pending rename is about to free waits for it. A
- * cycle (a swap) can't be ordered out, so one member is parked on a temporary
- * name first and lands on its real name at the end — three statements for a swap.
+ * Sequence renames so nothing renames into a name that is still occupied. A
+ * rename waits for whichever pending rename frees its target.
  *
- * `taken` is every name already live in the namespace, so a temporary can't
- * collide with one.
+ * A swap is a cycle and can't be ordered out, so one member parks on a temporary
+ * name and lands on its real one at the end. Three statements for a swap.
+ * `taken` is every name currently live, so the temporary can't collide.
  */
 function sequenceRenames(
   renames: readonly Rename[],
@@ -724,7 +724,7 @@ function sequenceRenames(
       out.push([r!.from, r!.to]);
       continue;
     }
-    // Every remaining rename is blocked by another: a cycle. Park one on a temp.
+    // Everything left is blocked by something else, so it's a cycle. Park one.
     const r = pending.shift()!;
     const temp = temporaryName(r.from, reserved);
     reserved.add(temp);
@@ -740,7 +740,7 @@ function temporaryName(base: string, taken: ReadonlySet<string>): string {
   return name;
 }
 
-/** Column renames sequenced per table — names only have to be unique within one. */
+/** Sequenced per table, since column names only have to be unique within one. */
 function columnRenameStatements(
   renames: ReadonlyArray<Rename & { tableId: string }>,
   before: Schema,
@@ -794,7 +794,7 @@ function createTableStatement(table: Table, names: NameLookup, nameFor: Namer): 
   return `CREATE TABLE ${q(table.name)} (\n${lines.join(',\n')}\n);`;
 }
 
-/** Column name, type, `NOT NULL`, `DEFAULT`. pk/unique/check/fk are separate statements. */
+/** Name, type, NOT NULL, DEFAULT. pk/unique/check/fk are separate statements. */
 function columnDefinition(column: Column): string {
   const parts = [q(column.name), renderType(column.type)];
   if (!column.nullable) parts.push('NOT NULL');
@@ -835,7 +835,7 @@ function constraintBody(
   }
 }
 
-/** PostgreSQL's own naming convention, so generated names line up with hand-written schemas. */
+/** PostgreSQL's own convention, so our names match hand-written schemas. */
 function constraintName(
   table: string,
   column: string,
@@ -856,9 +856,9 @@ function constraintName(
 type Namer = (base: string) => string;
 
 /**
- * Postgres disambiguates a repeated auto-generated constraint name with a numeric
- * suffix (`t_c_check`, `t_c_check1`); do the same so two `check`s on one column
- * don't emit two `ADD CONSTRAINT`s that collide.
+ * Postgres disambiguates a repeated auto-generated name with a numeric suffix
+ * (t_c_check, t_c_check1). Do the same, or two checks on one column emit two
+ * colliding ADD CONSTRAINTs.
  */
 function uniqueNames(): Namer {
   const used = new Map<string, number>();
@@ -898,9 +898,9 @@ interface NameLookup {
 }
 
 /**
- * id → name. Pass schemas newest-first (same convention as the app's `makeNames`):
- * the first one that knows an id wins, so a rename resolves to its new name and a
- * dropped entity still has one.
+ * id to name. Pass schemas newest-first, like the app's `makeNames`: the first one
+ * that knows an id wins, so a rename resolves to its new name and a dropped entity
+ * still resolves to something.
  */
 function names(...schemas: Schema[]): NameLookup {
   const tables = new Map<string, string>();
@@ -957,14 +957,14 @@ function foreignKeysOf(table: Table): Array<[Column, ForeignKey]> {
   return out;
 }
 
-/** " (5.2 GB / ~48M rows)", or "" when we have no stats for the table. */
+/** " (5.2 GB / ~48M rows)", or "" when there are no stats for the table. */
 function describeSize(stats: TableStats | undefined): string {
   if (!stats) return '';
   return ` (${formatBytes(stats.bytes)} / ~${formatRows(stats.rows)} rows)`;
 }
 
-// The app renders these too. Duplicated rather than shared, because the engine
-// must not import from `app/` — see src/app/lib/format.ts.
+// The app renders these too, but the engine must not import from app/, so this
+// is duplicated on purpose. See src/app/lib/format.ts.
 function formatBytes(bytes: number): string {
   const units = ['B', 'kB', 'MB', 'GB', 'TB'];
   let n = bytes;

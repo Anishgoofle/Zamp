@@ -3,8 +3,8 @@ import type { Connection, LiveDatabase } from '../lib/api';
 import { formatBytes, formatRows } from '../lib/format';
 
 /**
- * Connect to a Postgres database and read its schema. Presentational — the
- * connection state and the request live in `useDatabase`.
+ * Connect to a Postgres database and read its schema. Presentational; the
+ * connection state and the request itself live in `useDatabase`.
  */
 export function DatabasePanel({
   connection,

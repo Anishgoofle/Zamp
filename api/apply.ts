@@ -7,10 +7,10 @@ import {
   plan,
   readCatalog,
   rehearse,
-} from '../src/engine/index';
-import type { Schema } from '../src/engine/index';
-import { HttpError, withDatabase } from './_db';
-import { postJson, requireString } from './_http';
+} from '../src/engine/index.js';
+import type { Schema } from '../src/engine/index.js';
+import { HttpError, withDatabase } from './_db.js';
+import { postJson, requireString } from './_http.js';
 
 export const config = { maxDuration: 60 };
 
@@ -18,7 +18,7 @@ export const config = { maxDuration: 60 };
 const RESERVE_MS = 6_000;
 const BUDGET_MS = config.maxDuration * 1000 - RESERVE_MS;
 
-/** Don't queue behind a long-running query; fail fast and let the caller retry. */
+/** Don't queue behind a long-running query. Fail fast, let the caller retry. */
 const LOCK_TIMEOUT_MS = 3_000;
 
 /**
@@ -27,10 +27,9 @@ const LOCK_TIMEOUT_MS = 3_000;
  * `POST { connectionString?, schema?, target, online?, dryRun?, expect?, force? }`
  *
  * The browser sends the schema it wants, never the SQL. The server reads the live
- * database itself, diffs against *that*, and runs its own plan — so the only
- * statements that ever execute are ones this engine generated. An endpoint that
- * accepted SQL would be an open query console for every database this deployment
- * can reach.
+ * database, diffs against what it read, and runs its own plan, so the only
+ * statements that execute are ones this engine generated. An endpoint that took
+ * SQL would be an open query console for every database the deployment can reach.
  */
 export default postJson(async (body) => {
   const schemaName = requireString(body, 'schema', 'public');
@@ -52,7 +51,7 @@ export default postJson(async (body) => {
 
     // The plan the caller reviewed was computed against a schema they read
     // earlier. If the database has moved since, that plan describes something
-    // that no longer exists — refuse rather than apply it to whatever is there now.
+    // that isn't there any more. Refuse instead of applying it to whatever is.
     const expected = typeof body.expect === 'string' ? body.expect : null;
     if (expected && expected !== liveFingerprint) {
       throw new HttpError(
@@ -98,11 +97,11 @@ export default postJson(async (body) => {
 });
 
 /**
- * A target authored against a different database (or by hand) has ids that mean
- * nothing here, so every table would diff as a drop and an add — which on a live
- * database is every row in it. `detectRenames` re-pairs the two by name and by
- * structure first. It is a heuristic, so the matches it made come back in the
- * response to be looked at, rather than being applied quietly.
+ * A target authored against a different database, or by hand, carries ids that
+ * mean nothing here. Every table would then diff as a drop and an add, which on a
+ * live database means every row in it. `detectRenames` re-pairs the two by name
+ * and by structure first. Since that's a heuristic, the matches it made come back
+ * in the response to be looked at rather than being applied quietly.
  */
 function align(
   live: Schema,
@@ -125,7 +124,7 @@ function align(
   return { target: schema, renames };
 }
 
-/** id → a name a person can read, for both sides of a rename. */
+/** id to a readable name, for both sides of a rename. */
 function labels(schema: Schema): Map<string, string> {
   const out = new Map<string, string>();
   for (const table of schema.tables) {

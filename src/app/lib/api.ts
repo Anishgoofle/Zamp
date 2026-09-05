@@ -4,11 +4,11 @@ import type { Plan, Schema, TableStats } from '@engine';
 export interface LiveDatabase {
   schema: Schema;
   stats: Record<string, TableStats>;
-  /** Things in the database the model doesn't manage — worth reading before you trust a diff. */
+  /** Things in the database the model doesn't manage. Worth reading before trusting a diff. */
   notes: string[];
-  /** Identity of `schema`; `/api/apply` refuses to run if the database has moved past it. */
+  /** Identity of `schema`. /api/apply refuses to run if the database has moved past it. */
   fingerprint: string;
-  /** Which database answered, named without credentials — `shop on db.example.com`. */
+  /** Which database answered, named without credentials: "shop on db.example.com". */
   source: string;
 }
 
@@ -64,14 +64,25 @@ async function post<T>(url: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
     });
   } catch {
-    // A dev server without the api middleware, an offline browser, a blocked
-    // request — all indistinguishable from here, so say what to check.
+    // A dev server without the api middleware, an offline browser and a blocked
+    // request all look the same from here, so say what to check.
     throw new Error('Could not reach the server. Is it running?');
   }
 
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(errorText(payload) ?? `Request failed (${response.status}).`);
+    const reported = errorText(payload);
+    if (reported) throw new Error(reported);
+    // No JSON body means the request never reached the handler and the platform
+    // answered instead: the function failed to start, or something is sitting in
+    // front of the deployment. "Request failed (500)" points people at the app;
+    // the function logs are where the answer is.
+    throw new Error(
+      response.status >= 500
+        ? `The server failed before it could answer (${response.status}). ` +
+          `If this is a deployment, its function logs will say why.`
+        : `Request failed (${response.status}).`,
+    );
   }
   return payload as T;
 }

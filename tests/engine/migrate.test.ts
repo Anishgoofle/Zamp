@@ -3,7 +3,7 @@ import { diff, migrate } from '@engine';
 import type { ColumnConstraint, Schema } from '@engine';
 import { column, schema, table } from './fixtures';
 
-/** Migrate `before` to `after` by diffing them first — the documented entry path. */
+/** Migrate `before` to `after` by diffing them first: the documented entry path. */
 function sql(before: Schema, after: Schema): string[] {
   return migrate(before, diff(before, after));
 }

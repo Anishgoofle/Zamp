@@ -3,14 +3,14 @@ import type { Schema } from '@engine';
 
 export interface ParsedSchema {
   schema: Schema | null;
-  /** Parse failure, a shape problem, or a summary of `validate` errors — whichever came first. */
+  /** Parse failure, shape problem, or a summary of `validate` errors, whichever came first. */
   error: string | null;
 }
 
 /**
- * Parse the JSON editor text. The shape and invariant checks live in the engine
- * (`parseSchema`) so the editor and `/api/apply` agree on what a schema is;
- * everything left here is turning the result into something to show a person.
+ * Parse the JSON editor text. Shape and invariant checks live in the engine, in
+ * `parseSchema`, so the editor and /api/apply agree on what a schema is. What's
+ * left here is turning the result into something to show a person.
  */
 export function parseSchema(text: string): ParsedSchema {
   let value: unknown;

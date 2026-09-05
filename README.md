@@ -138,13 +138,33 @@ Then set, under **Settings → Environment Variables**:
 
 | variable | |
 | --- | --- |
-| `DATABASE_URL` | the Postgres this deployment owns. Neon's free tier is the quickest way to get one. |
+| `DATABASE_URL` | the Postgres this deployment owns. Neon's free tier is the quickest way to get one. Use the **direct** connection string, not the pooled one. |
 | `ALLOW_CLIENT_DATABASE_URL` | `true` to let the browser supply its own connection string. Off by default. |
+
+**Not the pooled endpoint.** Neon and Supabase both show you a pooled connection
+string by default (Neon puts `-pooler` in the hostname). This tool keeps state on
+the connection between round-trips: two timeouts, a pinned `search_path`, and an
+advisory lock held from the read through to the write. A transaction-mode pooler
+can hand each statement to a different backend and silently drops all three, so
+`/api/apply` refuses one with a 400 rather than running unprotected. Use the
+direct string: on Neon, the same host with `-pooler` removed.
+
+Then seed it, or the deployment comes up pointing at an empty database and
+"Read schema" returns nothing:
+
+```bash
+DATABASE_URL='postgres://...' npm run seed
+```
+
+That creates the same three demo tables `npm run dev` uses, with a thousand rows
+in `orders` so a failing constraint has something to fail on. It refuses to touch
+a database holding tables it doesn't recognise, so a mistyped URL can't cost you
+a schema.
 
 `ALLOW_CLIENT_DATABASE_URL` is off unless you turn it on: an endpoint that dials
 whatever address a browser hands it is a port scanner with a public URL. Turn it
-on for a scratch deployment you want other people to point at their own database
-— and only then.
+on for a scratch deployment you want other people to point at their own database,
+and only then.
 
 The build is a static SPA plus two Node functions. Nothing is stored server-side;
 connection strings live for the length of one request and are never logged.
@@ -191,6 +211,7 @@ The engine is the interesting part and is tested on its own. The `@engine` /
 npm run dev         # Vite + the api routes + a seeded in-process Postgres
 npm test            # 184 tests, including 18 against real Postgres
 npm run test:watch
+npm run seed        # put the demo schema into a real DATABASE_URL
 npm run typecheck   # tsc -b --noEmit across app, api and tooling
 npm run build       # → dist/
 npm run preview     # serve the built dist/ (no api routes — use `vercel dev`)
